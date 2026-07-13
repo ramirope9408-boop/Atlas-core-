@@ -24,15 +24,3 @@ Construir el sistema de IA más inteligente para:
 Fundador:
 Ramiro Pereira
 # Documentación de ATLAS 
-backend/README.md
-
-frontend/README.md
-
-agents/README.md
-
-database/README.md
-
-n8n/README.md
-
-api/README.md
-
