@@ -107,28 +107,46 @@ Cada nueva función deberá responder afirmativamente a estas preguntas:
 
 Si la respuesta es "no", la función deberá ser replanteada.
 
+# Principio 11 - Valor Antes que Funciones
+
+No construiremos funciones por moda.
+
+Solo desarrollaremos características que aporten valor real al usuario y contribuyan a cumplir la misión del producto.
+
 ---
 
-# Filosofía de Desarrollo
+# Filosofía
 
-No construimos funciones.
+No desarrollamos herramientas.
 
-Construimos capacidades.
-
-No desarrollamos automatizaciones.
-
-Creamos empleados digitales.
+Construimos empleados digitales.
 
 No vendemos software.
 
-Construimos una plataforma que ayuda a generar ingresos.
+Creamos sistemas que ayudan a personas y empresas a generar ingresos mediante Inteligencia Artificial.
+
+No competimos por tener más funciones.
+
+Competimos porque nuestros usuarios obtienen mejores resultados utilizando ATLAS.
 
 ---
 
 # Visión
 
-Project Genesis será la infraestructura tecnológica.
+Project Genesis será la infraestructura tecnológica sobre la cual se construirán múltiples productos de Inteligencia Artificial.
 
-ATLAS será el primer producto construido sobre ella.
+ATLAS será el primer producto desarrollado sobre Project Genesis y tendrá como misión convertirse en la plataforma líder para la generación de contenido, automatización y crecimiento digital.
 
-Cada decisión técnica deberá fortalecer ambos proyectos.
+---
+
+# Compromiso
+
+Cada decisión técnica deberá responder a tres preguntas:
+
+1. ¿Genera valor para el usuario?
+
+2. ¿Hace más fuerte a Project Genesis?
+
+3. ¿Hace más inteligente a ATLAS?
+
+Si la respuesta es "sí" a las tres preguntas, la decisión estará alineada con nuestra visión.
