@@ -546,35 +546,66 @@ function canonicalFactReferenceExists(
   reference: string,
 ): boolean {
   if (
-    typeof reference !==
-      "string" ||
+    typeof reference !== "string" ||
     reference.trim() === ""
   ) {
     return false;
   }
 
+  const normalizedReference =
+    reference
+      .trim()
+      .replace(/\[(\d+)\]/g, ".$1");
+
   const parts =
-    reference.split(".");
+    normalizedReference
+      .split(".")
+      .filter((part) => part.length > 0);
 
-  let cursor: any =
-    context;
+  if (parts.length === 0) {
+    return false;
+  }
 
-  for (
-    const part
-    of parts
-  ) {
+  let cursor: any = context;
+
+  for (const part of parts) {
     if (
       cursor === null ||
       cursor === undefined ||
-      typeof cursor !==
-        "object" ||
-      !(part in cursor)
+      typeof cursor !== "object"
     ) {
       return false;
     }
 
-    cursor =
-      cursor[part];
+    if (Array.isArray(cursor)) {
+      if (!/^\d+$/.test(part)) {
+        return false;
+      }
+
+      const index = Number(part);
+
+      if (
+        !Number.isInteger(index) ||
+        index < 0 ||
+        index >= cursor.length
+      ) {
+        return false;
+      }
+
+      cursor = cursor[index];
+      continue;
+    }
+
+    if (
+      !Object.prototype.hasOwnProperty.call(
+        cursor,
+        part,
+      )
+    ) {
+      return false;
+    }
+
+    cursor = cursor[part];
   }
 
   return true;
@@ -1279,21 +1310,29 @@ export default {
                   .audio_script;
             }
           }
-
-          // Final V1 must always have visible text
-          // because atlas_internal_messages supports TEXT/AUDIO,
-          // not TEXT_PLUS_AUDIO as a stored message type.
+          // Canonical registration requires a textual representation.
+          // For AUDIO, audio_script is the canonical textual
+          // representation of what will be spoken.
           if (
-            typeof finalResponse
-                .text_response !==
-              "string" ||
-            finalResponse
-              .text_response
-              .trim() === ""
+            finalResponse.response_mode === "AUDIO" &&
+            (
+              typeof finalResponse.text_response !== "string" ||
+              finalResponse.text_response.trim() === ""
+            ) &&
+            typeof finalResponse.audio_script === "string" &&
+            finalResponse.audio_script.trim() !== ""
+          ) {
+            finalResponse.text_response =
+              finalResponse.audio_script;
+          }
+
+          if (
+            typeof finalResponse.text_response !== "string" ||
+            finalResponse.text_response.trim() === ""
           ) {
             return errorResponse(
               "FINAL_MODEL_INVALID_JSON",
-              "Final response requires text_response for canonical registration",
+              "Final response requires canonical text for registration",
               502,
             );
           }
