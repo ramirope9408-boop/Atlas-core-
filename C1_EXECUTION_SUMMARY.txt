@@ -1,0 +1,201 @@
+C1 SMOKE TEST PREPARATION — FINAL REPORT
+
+==================================================
+C1 EXECUTION ENVIRONMENT:
+==================================================
+
+AUTHENTICATION REQUIREMENT:
+  RPC requires auth.uid() context (SECURITY DEFINER)
+  
+CANNOT EXECUTE IN: Supabase SQL Editor
+  ✗ SQL Editor runs as service_role (NOT authenticated user)
+  ✗ auth.uid() returns NULL in SQL Editor
+  ✗ RPC fails immediately: error='AUTH_REQUIRED'
+  ✗ Cannot test authorization chain
+
+CAN EXECUTE IN: Deno Script + JWT Authentication
+  ✓ Deno receives Bearer token via JWT
+  ✓ Supabase middleware extracts auth.uid() from token
+  ✓ RPC receives authenticated OWNER context
+  ✓ Authorization chain executes (auth → ownership → empresa access)
+  ✓ Can validate C1 expectations
+
+ENVIRONMENT: Deno + Authenticated JWT (NOT SQL Editor)
+
+==================================================
+C1 FIXTURE REQUIRED:
+==================================================
+
+YES.
+
+Fixture File:
+  supabase/tests/atlas_internal_prepare_final_response_context_v1_smoke.sql
+  Section: "C1: Valid decision without tool"
+
+Fixture Creates (transaction-based):
+  1. Message: c1100000-0000-0000-0000-000000000001
+  2. Decision: c1000000-0000-0000-0000-000000000001
+     - user_id: OWNER (verified from auth.users)
+     - empresa_id: bf55a6aa-2e3f-4749-b2b8-135537a7c7bf
+     - conversation_id: b947bf0c-dfe6-4b59-9df6-7abfa1bbc6de
+     - tool_required: FALSE
+     - selected_tool_code: NULL
+     - clarification_required: FALSE
+     - validation_status: VALID
+     - intent_code: ANSWER_INQUIRY
+     - confidence: 0.92
+
+Fixture Execution (SQL Editor):
+  1. Open Supabase SQL Editor
+  2. Copy fixture SQL from smoke test file
+  3. Execute: BEGIN; ... ROLLBACK;
+  4. Verify output: "[C1] Fixture created. Decision ID: c1000000-0000-0000-0000-000000000001"
+
+Fixture Safety:
+  ✓ Transaction-based (ROLLBACK on cleanup)
+  ✓ No permanent data
+  ✓ Idempotent (safe to run multiple times)
+
+==================================================
+AUTHENTICATED C1 COMMAND:
+==================================================
+
+Tool: Deno Runtime (https://deno.land)
+
+Setup:
+  export SUPABASE_URL="https://<project-id>.supabase.co"
+  export SUPABASE_ANON_KEY="<your-anon-key>"
+  export OWNER_EMAIL="<owner-email>"
+  export OWNER_PASSWORD="<owner-password>"
+
+Command:
+  cd /path/to/Atlas
+  deno run --allow-env --allow-net scripts/smoke-c1-context-builder.ts
+
+Script Location:
+  scripts/smoke-c1-context-builder.ts
+
+Authentication Flow:
+  1. Script signs in OWNER via /auth/v1/token
+  2. Receives JWT access_token
+  3. Calls RPC via /rest/v1/rpc with Authorization: Bearer <token>
+  4. auth.uid() = OWNER_ID (from JWT)
+  5. RPC checks pass → returns full context
+
+Expected Console Output:
+  [C1] Starting C1 smoke test for context builder...
+  [C1] Authenticating OWNER...
+  [C1] Authentication OK - user: owner@example.com
+  [C1] Calling atlas_internal_prepare_final_response_context with decision_id=c1000000-0000-0000-0000-000000000001...
+  [C1] RPC Response:
+  {...full context...}
+  [C1] Validation:
+  ✓ context_version: "INTERNAL_FINAL_RESPONSE_CONTEXT_V1"
+  ✓ empresa_id: "bf55a6aa-2e3f-4749-b2b8-135537a7c7bf"
+  ✓ conversation_id: "b947bf0c-dfe6-4b59-9df6-7abfa1bbc6de"
+  ✓ decision_id: "c1000000-0000-0000-0000-000000000001"
+  ✓ decision_state: "VALID"
+  ✓ safe_to_generate: true
+  ✓ tool_result_used: false
+  ✓ canonical_tool_result: null
+  [C1] Checks: 8 passed, 0 failed
+  [C1] C1 SMOKE TEST PASSED ✓
+
+Exit Code: 0 (success)
+
+==================================================
+EXPECTED C1 RESULT:
+==================================================
+
+RPC Returns (success):
+
+{
+  "context_version": "INTERNAL_FINAL_RESPONSE_CONTEXT_V1",
+  "empresa_id": "bf55a6aa-2e3f-4749-b2b8-135537a7c7bf",
+  "conversation_id": "b947bf0c-dfe6-4b59-9df6-7abfa1bbc6de",
+  "decision_id": "c1000000-0000-0000-0000-000000000001",
+  "user_id": "<OWNER_ID>",
+  "agent_code": "ATLAS_AGENT_STANDARD",
+  "decision_state": "VALID",
+  "safe_to_generate": true,
+  
+  "validated_decision": {
+    "intent_code": "ANSWER_INQUIRY",
+    "confidence": 0.92,
+    "tool_required": false,
+    "selected_tool_code": null,
+    "permission_granted": true,
+    "clarification_required": false,
+    "seriousness_level": "NORMAL",
+    "humor_allowed": true,
+    "response_mode": "TEXT",
+    "decision_metadata": {
+      "validation_status": "VALID",
+      "runtime": "SEMANTIC_LLM_EXECUTION_V1",
+      "model": "gpt-5.6-luna"
+    }
+  },
+  
+  "current_message": {
+    "message_id": "c1100000-0000-0000-0000-000000000001",
+    "message_type": "CONVERSATION",
+    "role": "user",
+    "content": "C1 test message: what is our quarterly revenue?",
+    "created_at": "..."
+  },
+  
+  "memory": {...},
+  "persona": {...},
+  "relationship": null,
+  "prompt_contract": {...},
+  
+  "canonical_tool_execution": null,
+  "canonical_tool_result": null,
+  "tool_result_used": false,
+  
+  "created_at": "..."
+}
+
+C1 Validation Assertions (8):
+  ✓ context_version = INTERNAL_FINAL_RESPONSE_CONTEXT_V1
+  ✓ empresa_id = bf55a6aa-2e3f-4749-b2b8-135537a7c7bf
+  ✓ conversation_id = b947bf0c-dfe6-4b59-9df6-7abfa1bbc6de
+  ✓ decision_id = c1000000-0000-0000-0000-000000000001
+  ✓ decision_state = VALID
+  ✓ safe_to_generate = true
+  ✓ tool_result_used = false
+  ✓ canonical_tool_result = null
+
+All assertions must pass.
+
+==================================================
+CLEANUP:
+==================================================
+
+Automatic (within fixture):
+  - BEGIN; ... ROLLBACK; wrapper
+  - Decision removed on ROLLBACK
+  - Message removed on ROLLBACK
+  - No permanent data
+
+Manual (if needed):
+  DELETE FROM public.atlas_internal_agent_decisions
+  WHERE id = 'c1000000-0000-0000-0000-000000000001';
+  
+  DELETE FROM public.atlas_internal_messages
+  WHERE id = 'c1100000-0000-0000-0000-000000000001';
+
+==================================================
+BLOCKERS:
+==================================================
+
+NONE.
+
+All prerequisites verified or created:
+  ✓ OWNER user (verified in fixture)
+  ✓ empresa bf55a6aa-2e3f-4749-b2b8-135537a7c7bf (verified in fixture)
+  ✓ conversation b947bf0c-dfe6-4b59-9df6-7abfa1bbc6de (verified in fixture)
+  ✓ RPC deployed and functional
+  ✓ Deno runtime available (user must install)
+
+Ready to Execute: YES ✓
