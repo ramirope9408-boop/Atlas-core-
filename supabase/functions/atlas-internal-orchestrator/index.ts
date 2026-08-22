@@ -2,10 +2,11 @@ import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
 
 // ============================================================
-// ATLAS - INTERNAL ORCHESTRATOR V1
+// ATLAS - INTERNAL ORCHESTRATOR V2
 //
 // Authenticated operator
 // -> Semantic Decision
+// -> governed WRITE input preparation when required
 // -> optional canonical Tool Executor
 // -> Final Response
 //
@@ -14,6 +15,7 @@ import { withSupabase } from "@supabase/server";
 // - Orchestrator does not invent decisions.
 // - Orchestrator does not execute business logic directly.
 // - Semantic Decision owns intent/decision.
+// - Operational Input Resolver owns deterministic WRITE inputs.
 // - Tool Executor owns canonical tool execution.
 // - Final Response owns user-facing response.
 // - Original authenticated user JWT is forwarded downstream.
@@ -306,6 +308,9 @@ export default {
         // 6. OPTIONAL TOOL EXECUTION
         // ============================================================
 
+        let toolPreparation:
+          unknown = null;
+
         let toolExecution:
           unknown = null;
 
@@ -313,6 +318,126 @@ export default {
           nextAction ===
             "EXECUTE_TOOL"
         ) {
+          const selectedToolCode =
+            validatedDecision
+              .selected_tool_code;
+
+          if (
+            typeof selectedToolCode !==
+              "string" ||
+            selectedToolCode.trim() === ""
+          ) {
+            return errorResponse(
+              "INVALID_SEMANTIC_CONTRACT",
+              "validated_decision.selected_tool_code missing for tool execution",
+              502,
+              "SEMANTIC_DECISION",
+            );
+          }
+
+          // ==========================================================
+          // GOVERNED WRITE TOOL PREPARATION
+          //
+          // Q8 V2 prepares only ATLAS_QUOTE_CREATE_INTERNAL.
+          // Certified READ tools preserve their direct execution path.
+          // ==========================================================
+
+          if (
+            selectedToolCode ===
+              "ATLAS_QUOTE_CREATE_INTERNAL"
+          ) {
+            const preparationResponse =
+              await fetch(
+                `${baseUrl}/rest/v1/rpc/atlas_internal_prepare_resolved_tool_request`,
+                {
+                  method: "POST",
+                  headers:
+                    downstreamHeaders,
+                  body: JSON.stringify({
+                    p_decision_id:
+                      decisionId,
+                  }),
+                },
+              );
+
+            toolPreparation =
+              await readJsonResponse(
+                preparationResponse,
+              );
+
+            if (!preparationResponse.ok) {
+              return errorResponse(
+                "TOOL_PREPARATION_STAGE_FAILED",
+                "Governed tool input preparation request failed",
+                502,
+                "TOOL_INPUT_PREPARATION",
+              );
+            }
+
+            if (!isObject(toolPreparation)) {
+              return errorResponse(
+                "INVALID_TOOL_PREPARATION_CONTRACT",
+                "Tool preparation returned an invalid response",
+                502,
+                "TOOL_INPUT_PREPARATION",
+              );
+            }
+
+            const preparationDecisionId =
+              toolPreparation
+                .decision_id;
+
+            const preparationStatus =
+              toolPreparation
+                .preparation_status;
+
+            const preparationSafe =
+              toolPreparation
+                .safe_to_continue;
+
+            const preparedToolCode =
+              toolPreparation
+                .tool_code;
+
+            if (
+              preparationDecisionId !==
+                decisionId
+            ) {
+              return errorResponse(
+                "INVALID_TOOL_PREPARATION_CONTRACT",
+                "Tool preparation decision mismatch",
+                502,
+                "TOOL_INPUT_PREPARATION",
+              );
+            }
+
+            if (
+              preparationStatus !==
+                "PREPARED" ||
+              preparationSafe !==
+                true
+            ) {
+              return errorResponse(
+                "TOOL_INPUT_NOT_PREPARED",
+                "Governed tool input was not safely prepared",
+                409,
+                "TOOL_INPUT_PREPARATION",
+              );
+            }
+
+            if (
+              preparedToolCode !==
+                selectedToolCode
+            ) {
+              return errorResponse(
+                "INVALID_TOOL_PREPARATION_CONTRACT",
+                "Prepared tool code mismatch",
+                502,
+                "TOOL_INPUT_PREPARATION",
+              );
+            }
+          }
+
           const toolResponse =
             await fetch(
               `${baseUrl}/rest/v1/rpc/atlas_internal_execute_tool`,
@@ -434,7 +559,7 @@ export default {
 
         return jsonResponse({
           runtime_version:
-            "INTERNAL_ORCHESTRATOR_V1",
+            "INTERNAL_ORCHESTRATOR_V2",
 
           empresa_id,
 
@@ -449,6 +574,9 @@ export default {
           tool_executed:
             nextAction ===
               "EXECUTE_TOOL",
+
+          tool_preparation:
+            toolPreparation,
 
           tool_execution:
             toolExecution,
