@@ -1,0 +1,42 @@
+{
+    "name":  "atlas-web",
+    "private":  true,
+    "version":  "0.0.0",
+    "type":  "module",
+    "scripts":  {
+                    "dev":  "vite",
+                    "build":  "tsc -b \u0026\u0026 vite build",
+                    "lint":  "oxlint",
+                    "preview":  "vite preview",
+                    "typecheck":  "tsc -b --pretty false",
+                    "test":  "vitest",
+                    "test:run":  "vitest run"
+                },
+    "dependencies":  {
+                         "@supabase/supabase-js":  "^2.112.3",
+                         "@tanstack/react-query":  "^5.102.2",
+                         "clsx":  "^2.1.1",
+                         "lucide-react":  "^1.33.0",
+                         "react":  "^19.2.8",
+                         "react-dom":  "^19.2.8",
+                         "react-router-dom":  "^7.18.2",
+                         "tailwind-merge":  "^3.6.0",
+                         "zod":  "^4.4.3"
+                     },
+    "devDependencies":  {
+                            "@tailwindcss/vite":  "^4.3.3",
+                            "@testing-library/jest-dom":  "^7.0.1",
+                            "@testing-library/react":  "^16.3.2",
+                            "@testing-library/user-event":  "^14.6.6",
+                            "@types/node":  "^24.13.3",
+                            "@types/react":  "^19.2.17",
+                            "@types/react-dom":  "^19.2.3",
+                            "@vitejs/plugin-react":  "^6.0.4",
+                            "jsdom":  "^30.0.1",
+                            "oxlint":  "^1.75.0",
+                            "tailwindcss":  "^4.3.3",
+                            "typescript":  "~6.0.2",
+                            "vite":  "^8.2.0",
+                            "vitest":  "^4.1.11"
+                        }
+}
