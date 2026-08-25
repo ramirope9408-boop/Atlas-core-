@@ -5,6 +5,7 @@ import { ValentinaWorkspace } from './ValentinaWorkspace'
 
 const listMock = vi.fn()
 const messagesMock = vi.fn()
+const scrollToMock = vi.fn()
 
 vi.mock('../../auth/auth-context', () => ({
   useAuth: () => ({
@@ -31,6 +32,11 @@ vi.mock('../api/valentina-conversations', () => ({
 
 describe('ValentinaWorkspace', () => {
   beforeEach(() => {
+    scrollToMock.mockReset()
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: scrollToMock,
+    })
     listMock.mockResolvedValue({
       conversations: [
         {
@@ -85,6 +91,27 @@ describe('ValentinaWorkspace', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('FingerFood')).toBeInTheDocument()
   })
+
+  it('keeps automatic message scrolling inside the conversation viewport', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    render(
+      <QueryClientProvider client={client}>
+        <ValentinaWorkspace />
+      </QueryClientProvider>,
+    )
+
+    await screen.findByText('Respuesta canónica de Valentina.')
+
+    expect(screen.getByTestId('messages-viewport')).toBeInTheDocument()
+    expect(scrollToMock).toHaveBeenCalledWith({
+      top: 0,
+      behavior: 'smooth',
+    })
+  })
+
   it('recovers message loading without resending content', async () => {
     messagesMock
       .mockRejectedValueOnce(new Error('Temporal test error.'))

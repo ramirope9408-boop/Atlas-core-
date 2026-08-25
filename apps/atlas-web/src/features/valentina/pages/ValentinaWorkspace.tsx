@@ -83,7 +83,7 @@ function MessageBubble({ message }: { message: ValentinaMessage }) {
 export function ValentinaWorkspace() {
   const { bootstrap } = useAuth()
   const queryClient = useQueryClient()
-  const messagesEndRef = useRef<HTMLDivElement | null>(null)
+  const messagesViewportRef = useRef<HTMLDivElement | null>(null)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [recovering, setRecovering] = useState(false)
@@ -126,9 +126,12 @@ export function ValentinaWorkspace() {
   )
 
   useEffect(() => {
-    const target = messagesEndRef.current
-    if (target && typeof target.scrollIntoView === 'function') {
-      target.scrollIntoView({ behavior: 'smooth' })
+    const viewport = messagesViewportRef.current
+    if (viewport && typeof viewport.scrollTo === 'function') {
+      viewport.scrollTo({
+        top: viewport.scrollHeight,
+        behavior: 'smooth',
+      })
     }
   }, [messages.length])
 
@@ -229,7 +232,7 @@ export function ValentinaWorkspace() {
         </button>
       </div>
 
-      <div className="grid min-h-[calc(100vh-9.5rem)] overflow-hidden rounded-[22px] border border-slate-200/80 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.07)] xl:grid-cols-[260px_minmax(420px,1fr)_330px]">
+      <div className="grid h-[calc(100dvh-9.5rem)] min-h-0 overflow-hidden rounded-[22px] border border-slate-200/80 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.07)] xl:h-auto xl:min-h-[calc(100vh-9.5rem)] xl:grid-cols-[260px_minmax(420px,1fr)_330px]">
         <aside className="hidden border-r border-slate-200/80 bg-slate-50/70 xl:block">
           <div className="border-b border-slate-200/80 p-4">
             <div className="flex items-center justify-between">
@@ -274,7 +277,7 @@ export function ValentinaWorkspace() {
           </div>
         </aside>
 
-        <section className="flex min-h-[650px] flex-col bg-white">
+        <section className="flex min-h-0 flex-col bg-white xl:min-h-[650px]">
           <div className="flex h-[65px] items-center justify-between border-b border-slate-200/80 px-4 sm:px-5">
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-slate-900">
@@ -288,7 +291,11 @@ export function ValentinaWorkspace() {
             {activeConversation && <OpenBadge />}
           </div>
 
-          <div className="flex-1 space-y-6 overflow-y-auto bg-[radial-gradient(circle_at_top,#f8faff_0%,#ffffff_48%)] px-4 py-6 sm:px-8">
+          <div
+            ref={messagesViewportRef}
+            data-testid="messages-viewport"
+            className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain bg-[radial-gradient(circle_at_top,#f8faff_0%,#ffffff_48%)] px-4 py-6 sm:px-8"
+          >
             {!selectedConversationId && !conversationsQuery.isLoading && (
               <div className="mx-auto mt-24 max-w-md text-center">
                 <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600">
@@ -317,10 +324,9 @@ export function ValentinaWorkspace() {
                 Valentina está procesando el mensaje…
               </div>
             )}
-            <div ref={messagesEndRef} />
           </div>
 
-          <div className="border-t border-slate-200/80 bg-white p-3 sm:p-4">
+          <div className="shrink-0 border-t border-slate-200/80 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
             {error && (
               <div
                 role="alert"
