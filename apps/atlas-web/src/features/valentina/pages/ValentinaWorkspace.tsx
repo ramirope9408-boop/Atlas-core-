@@ -86,6 +86,7 @@ export function ValentinaWorkspace() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [recovering, setRecovering] = useState(false)
 
   const empresaId = bootstrap?.default_empresa_id ?? null
   const company = bootstrap?.companies.find(
@@ -96,6 +97,8 @@ export function ValentinaWorkspace() {
     queryKey: ['valentina-conversations', empresaId],
     queryFn: () => listValentinaConversations(empresaId!),
     enabled: Boolean(empresaId),
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: false,
   })
 
   const conversations = useMemo(
@@ -110,6 +113,8 @@ export function ValentinaWorkspace() {
     queryKey: ['valentina-messages', selectedConversationId],
     queryFn: () => getValentinaMessages(selectedConversationId!),
     enabled: Boolean(selectedConversationId),
+    refetchInterval: selectedConversationId ? 2_500 : false,
+    refetchIntervalInBackground: false,
   })
 
   const activeConversation = conversations.find(
@@ -166,7 +171,10 @@ export function ValentinaWorkspace() {
     },
   })
 
-  const busy = openMutation.isPending || sendMutation.isPending
+  const busy =
+    openMutation.isPending ||
+    sendMutation.isPending ||
+    recovering
   const error =
     conversationsQuery.error ||
     messagesQuery.error ||
@@ -176,6 +184,26 @@ export function ValentinaWorkspace() {
   function submitMessage() {
     if (!draft.trim() || busy) return
     sendMutation.mutate()
+  }
+
+  async function recoverWorkspace() {
+    if (recovering) return
+
+    setRecovering(true)
+
+    try {
+      openMutation.reset()
+      sendMutation.reset()
+
+      await Promise.all([
+        conversationsQuery.refetch(),
+        selectedConversationId
+          ? messagesQuery.refetch()
+          : Promise.resolve(),
+      ])
+    } finally {
+      setRecovering(false)
+    }
   }
 
   return (
@@ -294,9 +322,24 @@ export function ValentinaWorkspace() {
 
           <div className="border-t border-slate-200/80 bg-white p-3 sm:p-4">
             {error && (
-              <p role="alert" className="mx-auto mb-2 max-w-3xl rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                {error instanceof Error ? error.message : 'Ocurrió un error inesperado.'}
-              </p>
+              <div
+                role="alert"
+                className="mx-auto mb-2 flex max-w-3xl items-center justify-between gap-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-700"
+              >
+                <span>
+                  {error instanceof Error
+                    ? error.message
+                    : 'Ocurrió un error inesperado.'}
+                </span>
+                <button
+                  type="button"
+                  disabled={recovering}
+                  onClick={() => void recoverWorkspace()}
+                  className="shrink-0 rounded-lg border border-rose-200 bg-white px-3 py-1.5 font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {recovering ? 'Actualizando…' : 'Actualizar'}
+                </button>
+              </div>
             )}
             <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_8px_30px_rgba(15,23,42,0.06)] focus-within:border-indigo-300 focus-within:ring-4 focus-within:ring-indigo-100/60">
               <textarea

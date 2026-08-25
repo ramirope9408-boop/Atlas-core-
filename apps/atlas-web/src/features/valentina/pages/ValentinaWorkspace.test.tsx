@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ValentinaWorkspace } from './ValentinaWorkspace'
 
@@ -84,5 +84,44 @@ describe('ValentinaWorkspace', () => {
       await screen.findByText('Respuesta canónica de Valentina.'),
     ).toBeInTheDocument()
     expect(screen.getByText('FingerFood')).toBeInTheDocument()
+  })
+  it('recovers message loading without resending content', async () => {
+    messagesMock
+      .mockRejectedValueOnce(new Error('Temporal test error.'))
+      .mockResolvedValue({
+        messages: [
+          {
+            id: '90fbeaf0-b012-46f5-b021-95ecbf6d0cf2',
+            actor_type: 'AGENT',
+            agent_code: 'VALENTINA',
+            direction: 'OUTBOUND',
+            message_type: 'TEXT',
+            text_content: 'Respuesta recuperada.',
+            created_at: '2026-08-25T17:59:00.000000+00:00',
+          },
+        ],
+      })
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    render(
+      <QueryClientProvider client={client}>
+        <ValentinaWorkspace />
+      </QueryClientProvider>,
+    )
+
+    expect(
+      await screen.findByText('Temporal test error.'),
+    ).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Actualizar' }),
+    )
+
+    expect(
+      await screen.findByText('Respuesta recuperada.'),
+    ).toBeInTheDocument()
   })
 })
