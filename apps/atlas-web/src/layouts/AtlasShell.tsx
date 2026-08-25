@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Activity,
   Bell,
@@ -87,7 +87,10 @@ function SidebarContent({
         </p>
 
         <button
-          className="flex w-full items-center gap-3 rounded-xl p-1 text-left"
+          aria-label="Selector de empresa disponible próximamente"
+          className="flex w-full cursor-not-allowed items-center gap-3 rounded-xl p-1 text-left"
+          disabled
+          title="Disponible próximamente"
           type="button"
         >
           <span className="grid size-9 place-items-center rounded-xl bg-amber-300 text-xs font-bold text-slate-950">
@@ -144,7 +147,10 @@ function SidebarContent({
               title="Disponible próximamente"
             >
               <Icon className="size-[18px]" />
-              {item.label}
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              <span className="rounded-full border border-white/[0.06] bg-white/[0.03] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-600">
+                Próx.
+              </span>
             </div>
           )
         })}
@@ -157,7 +163,10 @@ function SidebarContent({
           type="button"
         >
           <Settings2 className="size-[18px]" />
-          Configuración
+          <span className="min-w-0 flex-1 text-left">Configuración</span>
+          <span className="rounded-full border border-white/[0.06] bg-white/[0.03] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-600">
+            Próx.
+          </span>
         </button>
 
         <div className="mt-2 rounded-xl bg-black/15 p-3">
@@ -197,6 +206,26 @@ export function AtlasShell() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { bootstrap, signOut } = useAuth()
 
+  useEffect(() => {
+    if (!mobileOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMobileOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [mobileOpen])
+
   if (!bootstrap) {
     return null
   }
@@ -234,7 +263,12 @@ export function AtlasShell() {
             type="button"
           />
 
-          <aside className="relative flex h-full w-[280px] flex-col bg-[#0a1020] shadow-2xl">
+          <aside
+            aria-label="Menú principal"
+            aria-modal="true"
+            className="relative flex h-[100dvh] w-[min(82vw,320px)] flex-col overflow-hidden bg-[#0a1020] pb-[env(safe-area-inset-bottom)] shadow-2xl"
+            role="dialog"
+          >
             <button
               className="absolute right-4 top-5 rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"
               aria-label="Cerrar menú"
@@ -247,7 +281,10 @@ export function AtlasShell() {
             <SidebarContent
               company={activeCompany}
               onNavigate={() => setMobileOpen(false)}
-              onSignOut={signOut}
+              onSignOut={async () => {
+                setMobileOpen(false)
+                await signOut()
+              }}
             />
           </aside>
         </div>
@@ -280,20 +317,23 @@ export function AtlasShell() {
             </span>
 
             <button
-              className="rounded-xl p-2.5 text-slate-500 hover:bg-slate-100"
-              aria-label="Buscar"
+              className="cursor-not-allowed rounded-xl p-2.5 text-slate-300"
+              aria-label="Buscar (disponible próximamente)"
+              disabled
+              title="Disponible próximamente"
               type="button"
             >
               <Search className="size-[18px]" />
             </button>
 
             <button
-              className="relative rounded-xl p-2.5 text-slate-500 hover:bg-slate-100"
-              aria-label="Notificaciones"
+              className="relative cursor-not-allowed rounded-xl p-2.5 text-slate-300"
+              aria-label="Notificaciones (disponible próximamente)"
+              disabled
+              title="Disponible próximamente"
               type="button"
             >
               <Bell className="size-[18px]" />
-              <span className="absolute right-2 top-2 size-2 rounded-full border-2 border-white bg-indigo-500" />
             </button>
           </div>
         </header>
