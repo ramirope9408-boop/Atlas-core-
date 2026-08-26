@@ -7,9 +7,11 @@ import {
   MessageSquarePlus,
   MoreHorizontal,
   Paperclip,
+  PanelLeftOpen,
   Send,
   ShieldCheck,
   Sparkles,
+  X,
 } from 'lucide-react'
 import { useAuth } from '../../auth/auth-context'
 import {
@@ -35,6 +37,36 @@ function conversationTitle(conversation?: ValentinaConversation) {
 
 function previewText(conversation: ValentinaConversation) {
   return conversation.last_message?.text_content || 'Conversación sin mensajes'
+}
+
+type ConversationListProps = {
+  conversations: ValentinaConversation[]
+  loading: boolean
+  selectedConversationId: string | null
+  onSelect: (conversationId: string) => void
+}
+
+function ConversationList({ conversations, loading, selectedConversationId, onSelect }: ConversationListProps) {
+  return (
+    <div className="space-y-1.5 p-2.5">
+      {loading && <p className="p-3 text-xs text-slate-500">Cargando conversaciones…</p>}
+      {conversations.map((conversation) => {
+        const active = conversation.id === selectedConversationId
+        return (
+          <button key={conversation.id} type="button" onClick={() => onSelect(conversation.id)} className={`w-full rounded-xl p-3 text-left transition ${active ? 'bg-white shadow-sm ring-1 ring-slate-200/80' : 'hover:bg-white/70'}`}>
+            <div className="flex items-start gap-2.5">
+              <span className={`mt-1 size-2 shrink-0 rounded-full ${active ? 'bg-indigo-500' : 'bg-slate-300'}`} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-semibold text-slate-800">{conversationTitle(conversation)}</span>
+                <span className="mt-1 block truncate text-xs text-slate-500">{previewText(conversation)}</span>
+              </span>
+              <span className="text-[10px] text-slate-400">{formatTime(conversation.last_activity_at)}</span>
+            </div>
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 function OpenBadge() {
@@ -87,6 +119,7 @@ export function ValentinaWorkspace() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [recovering, setRecovering] = useState(false)
+  const [mobileConversationsOpen, setMobileConversationsOpen] = useState(false)
 
   const empresaId = bootstrap?.default_empresa_id ?? null
   const company = bootstrap?.companies.find(
@@ -134,6 +167,23 @@ export function ValentinaWorkspace() {
       })
     }
   }, [messages.length])
+
+  useEffect(() => {
+    if (!mobileConversationsOpen) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setMobileConversationsOpen(false)
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [mobileConversationsOpen])
 
   const openMutation = useMutation({
     mutationFn: () => openValentinaConversation(empresaId!),
@@ -189,6 +239,11 @@ export function ValentinaWorkspace() {
     sendMutation.mutate()
   }
 
+  function selectConversation(conversationId: string) {
+    setActiveConversationId(conversationId)
+    setMobileConversationsOpen(false)
+  }
+
   async function recoverWorkspace() {
     if (recovering) return
 
@@ -232,7 +287,7 @@ export function ValentinaWorkspace() {
         </button>
       </div>
 
-      <div className="grid h-[calc(100dvh-9.5rem)] min-h-0 overflow-hidden rounded-[22px] border border-slate-200/80 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.07)] xl:h-auto xl:min-h-[calc(100vh-9.5rem)] xl:grid-cols-[260px_minmax(420px,1fr)_330px]">
+      <div className="grid h-[calc(100dvh-9.5rem)] min-h-0 overflow-hidden rounded-[22px] border border-slate-200/80 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.07)] xl:h-auto xl:min-h-[calc(100vh-9.5rem)] xl:grid-cols-[230px_minmax(360px,1fr)_280px] 2xl:grid-cols-[260px_minmax(420px,1fr)_330px]">
         <aside className="hidden border-r border-slate-200/80 bg-slate-50/70 xl:block">
           <div className="border-b border-slate-200/80 p-4">
             <div className="flex items-center justify-between">
@@ -240,53 +295,22 @@ export function ValentinaWorkspace() {
               <MoreHorizontal className="size-4 text-slate-400" />
             </div>
           </div>
-          <div className="space-y-1.5 p-2.5">
-            {conversationsQuery.isLoading && (
-              <p className="p-3 text-xs text-slate-500">Cargando conversaciones…</p>
-            )}
-            {conversations.map((conversation) => {
-              const active = conversation.id === selectedConversationId
-              return (
-                <button
-                  key={conversation.id}
-                  type="button"
-                  onClick={() => setActiveConversationId(conversation.id)}
-                  className={`w-full rounded-xl p-3 text-left transition ${
-                    active
-                      ? 'bg-white shadow-sm ring-1 ring-slate-200/80'
-                      : 'hover:bg-white/70'
-                  }`}
-                >
-                  <div className="flex items-start gap-2.5">
-                    <span className={`mt-1 size-2 shrink-0 rounded-full ${active ? 'bg-indigo-500' : 'bg-slate-300'}`} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] font-semibold text-slate-800">
-                        {conversationTitle(conversation)}
-                      </span>
-                      <span className="mt-1 block truncate text-xs text-slate-500">
-                        {previewText(conversation)}
-                      </span>
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {formatTime(conversation.last_activity_at)}
-                    </span>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
+          <ConversationList conversations={conversations} loading={conversationsQuery.isLoading} selectedConversationId={selectedConversationId} onSelect={selectConversation} />
         </aside>
 
         <section className="flex min-h-0 flex-col bg-white xl:min-h-[650px]">
           <div className="flex h-[65px] items-center justify-between border-b border-slate-200/80 px-4 sm:px-5">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">
-                {conversationTitle(activeConversation)}
-              </p>
-              <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
-                <ShieldCheck className="size-3.5 text-emerald-600" />
-                Conversación interna protegida
-              </p>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <button type="button" onClick={() => setMobileConversationsOpen(true)} className="grid size-9 shrink-0 place-items-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100 xl:hidden" aria-label="Abrir conversaciones de Valentina">
+                <PanelLeftOpen className="size-[18px]" />
+              </button>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">{conversationTitle(activeConversation)}</p>
+                <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+                  <ShieldCheck className="size-3.5 text-emerald-600" />
+                  Conversación interna protegida
+                </p>
+              </div>
             </div>
             {activeConversation && <OpenBadge />}
           </div>
@@ -416,6 +440,26 @@ export function ValentinaWorkspace() {
           </div>
         </aside>
       </div>
+
+      {mobileConversationsOpen && (
+        <div className="fixed inset-0 z-50 xl:hidden">
+          <button type="button" aria-label="Cerrar conversaciones de Valentina" onClick={() => setMobileConversationsOpen(false)} className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm" />
+          <aside role="dialog" aria-modal="true" aria-label="Conversaciones de Valentina" className="absolute inset-x-0 bottom-0 flex max-h-[78dvh] flex-col overflow-hidden rounded-t-[28px] bg-slate-50 pb-[env(safe-area-inset-bottom)] shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
+              <div>
+                <p className="font-semibold text-slate-950">Conversaciones de Valentina</p>
+                <p className="mt-0.5 text-xs text-slate-500">Canal interno protegido</p>
+              </div>
+              <button type="button" onClick={() => setMobileConversationsOpen(false)} className="grid size-9 place-items-center rounded-xl text-slate-500 hover:bg-slate-100" aria-label="Cerrar conversaciones de Valentina">
+                <X className="size-[18px]" />
+              </button>
+            </div>
+            <div className="min-h-0 overflow-y-auto">
+              <ConversationList conversations={conversations} loading={conversationsQuery.isLoading} selectedConversationId={selectedConversationId} onSelect={selectConversation} />
+            </div>
+          </aside>
+        </div>
+      )}
     </div>
   )
 }

@@ -112,6 +112,39 @@ describe('ValentinaWorkspace', () => {
     })
   })
 
+  it('opens and closes the internal conversation picker on mobile', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    render(
+      <QueryClientProvider client={client}>
+        <ValentinaWorkspace />
+      </QueryClientProvider>,
+    )
+
+    await screen.findByText('Respuesta canónica de Valentina.')
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Abrir conversaciones de Valentina',
+      }),
+    )
+
+    expect(
+      screen.getByRole('dialog', { name: 'Conversaciones de Valentina' }),
+    ).toBeInTheDocument()
+    expect(document.body.style.overflow).toBe('hidden')
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: 'Conversaciones de Valentina' }),
+      ).not.toBeInTheDocument()
+    })
+  })
+
   it('recovers message loading without resending content', async () => {
     messagesMock
       .mockRejectedValueOnce(new Error('Temporal test error.'))
