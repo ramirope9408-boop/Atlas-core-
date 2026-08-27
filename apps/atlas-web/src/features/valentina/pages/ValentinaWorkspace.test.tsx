@@ -33,6 +33,7 @@ vi.mock('../api/valentina-conversations', () => ({
 describe('ValentinaWorkspace', () => {
   beforeEach(() => {
     scrollToMock.mockReset()
+    document.body.style.overflow = ''
     Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
       configurable: true,
       value: scrollToMock,
@@ -135,6 +136,9 @@ describe('ValentinaWorkspace', () => {
       screen.getByRole('dialog', { name: 'Conversaciones de Valentina' }),
     ).toBeInTheDocument()
     expect(document.body.style.overflow).toBe('hidden')
+    expect(
+      screen.getByRole('button', { name: 'Cerrar conversaciones de Valentina' }),
+    ).toHaveFocus()
 
     fireEvent.keyDown(window, { key: 'Escape' })
 
@@ -143,6 +147,30 @@ describe('ValentinaWorkspace', () => {
         screen.queryByRole('dialog', { name: 'Conversaciones de Valentina' }),
       ).not.toBeInTheDocument()
     })
+    expect(
+      screen.getByRole('button', { name: 'Abrir conversaciones de Valentina' }),
+    ).toHaveFocus()
+  })
+
+  it('renders accessible empty states and a labelled composer', async () => {
+    listMock.mockResolvedValue({ conversations: [] })
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    render(
+      <QueryClientProvider client={client}>
+        <ValentinaWorkspace />
+      </QueryClientProvider>,
+    )
+
+    expect(
+      await screen.findByText('Aún no hay conversaciones internas'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('textbox', { name: 'Mensaje para Valentina' }),
+    ).toHaveAttribute('aria-describedby', 'valentina-message-help')
   })
 
   it('recovers message loading without resending content', async () => {
