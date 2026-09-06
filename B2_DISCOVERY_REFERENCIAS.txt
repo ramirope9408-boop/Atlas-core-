@@ -1,0 +1,1 @@
+﻿C:\Users\RAMIRO Y YUSARY\OneDrive\Escritorio\Atlas\supabase\migrations\20260823195000_atlas_web_bootstrap_context_v1.sql:102: from public.atlas_internal_memberships m
