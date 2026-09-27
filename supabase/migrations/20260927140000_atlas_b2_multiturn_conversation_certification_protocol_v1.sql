@@ -76,10 +76,10 @@ insert into public.atlas_conversation_test_scenario_step_definitions(
   message_template, expected_state_semantic, required_for_assertion
 ) values
   ('DIRECT_CANONICAL_LOOKUP', 10, 'ASK_CANONICAL_ENTITY', 'CUSTOMER', 'MESSAGE',
-   '{{CANONICAL_ENTITY_QUESTION}}', null, true),
+   '{{LOCALE_CANONICAL_QUESTION}}', null, true),
 
   ('UNSUPPORTED_ATTRIBUTE_REJECTION', 10, 'ASK_UNSUPPORTED_ATTRIBUTE', 'CUSTOMER', 'MESSAGE',
-   'What is the {{UNSUPPORTED_ATTRIBUTE}} of {{CANONICAL_ENTITY}}?', null, true),
+   '{{LOCALE_UNSUPPORTED_ATTRIBUTE_QUESTION}}', null, true),
 
   ('AMBIGUOUS_COMMERCIAL_REQUEST', 10, 'SEND_AMBIGUOUS_REQUEST', 'CUSTOMER', 'MESSAGE',
    '{{AMBIGUOUS_COMMERCIAL_REQUEST}}', null, true),
@@ -117,17 +117,17 @@ insert into public.atlas_conversation_test_scenario_step_definitions(
   ('PAYMENT_BEFORE_ACCEPTANCE_BLOCKED', 10, 'CREATE_VISIBLE_COMMERCIAL_OBJECT', 'CUSTOMER', 'MESSAGE',
    '{{INITIAL_REQUEST}}', null, false),
   ('PAYMENT_BEFORE_ACCEPTANCE_BLOCKED', 20, 'REQUEST_PAYMENT_WITHOUT_ACCEPTANCE', 'CUSTOMER', 'MESSAGE',
-   'Continue to payment for the current object.', null, true),
+   '{{PAYMENT_REQUEST}}', null, true),
 
   ('VISUAL_FAMILY_REFERENCE', 10, 'REQUEST_VISUAL_REFERENCE', 'CUSTOMER', 'MESSAGE',
-   'Show me an image of {{CANONICAL_ENTITY_OR_FAMILY}}.', null, true),
+   '{{LOCALE_VISUAL_REQUEST}}', null, true),
 
   ('DOCUMENT_CURRENT_VERSION_BINDING', 10, 'CREATE_DOCUMENT_SOURCE_OBJECT', 'CUSTOMER', 'MESSAGE',
    '{{INITIAL_REQUEST}}', null, false),
   ('DOCUMENT_CURRENT_VERSION_BINDING', 20, 'MODIFY_DOCUMENT_SOURCE_OBJECT', 'CUSTOMER', 'MESSAGE',
    '{{CURRENT_MODIFICATION_REQUEST}}', null, false),
   ('DOCUMENT_CURRENT_VERSION_BINDING', 30, 'REQUEST_CURRENT_DOCUMENT', 'CUSTOMER', 'MESSAGE',
-   'Generate the document for the current object.', null, true);
+   '{{DOCUMENT_REQUEST}}', null, true);
 
 create index idx_atlas_conversation_step_definitions_scenario
   on public.atlas_conversation_test_scenario_step_definitions(
@@ -148,6 +148,7 @@ declare
   v_instance public.atlas_conversation_test_scenario_instances%rowtype;
   v_resolution jsonb;
   v_bindings jsonb;
+  v_locale text;
   v_steps jsonb;
 begin
   if auth.uid() is null then
@@ -183,6 +184,21 @@ begin
 
   v_bindings := v_resolution->'bindings';
 
+  v_locale := public.atlas_detect_certification_locale_v1(
+    v_instance.canonical_data_version_id
+  );
+
+  if v_locale is null then
+    return jsonb_build_object(
+      'ok', true,
+      'code', 'CERTIFICATION_LOCALE_UNSUPPORTED_OR_MISSING',
+      'ready', false,
+      'scenario_instance_id', v_instance.id,
+      'scenario_code', v_instance.scenario_code,
+      'next_action', 'REMEDIATE_AGENT_LOCALE_CONFIGURATION'
+    );
+  end if;
+
   select coalesce(
     jsonb_agg(
       jsonb_build_object(
@@ -201,7 +217,27 @@ begin
                       replace(
                         replace(
                           replace(
-                            step.message_template,
+                            replace(
+                              replace(
+                                replace(
+                                  replace(
+                                    replace(
+                                      step.message_template,
+                                      '{{LOCALE_CANONICAL_QUESTION}}',
+                                      coalesce(public.atlas_certification_phrase_v1(v_locale,'CANONICAL_QUESTION'),'')
+                                    ),
+                                    '{{LOCALE_UNSUPPORTED_ATTRIBUTE_QUESTION}}',
+                                    coalesce(public.atlas_certification_phrase_v1(v_locale,'UNSUPPORTED_ATTRIBUTE_QUESTION'),'')
+                                  ),
+                                  '{{LOCALE_VISUAL_REQUEST}}',
+                                  coalesce(public.atlas_certification_phrase_v1(v_locale,'VISUAL_REQUEST'),'')
+                                ),
+                                '{{PAYMENT_REQUEST}}',
+                                coalesce(public.atlas_certification_phrase_v1(v_locale,'PAYMENT_REQUEST'),'')
+                              ),
+                              '{{DOCUMENT_REQUEST}}',
+                              coalesce(public.atlas_certification_phrase_v1(v_locale,'DOCUMENT_REQUEST'),'')
+                            ),
                             '{{CANONICAL_ENTITY}}',
                             coalesce(v_bindings->>'canonical_entity','CANONICAL_ENTITY')
                           ),
@@ -224,10 +260,10 @@ begin
                 'MODIFICATION_OF_CURRENT_VISIBLE_OBJECT'
               ),
               '{{ACKNOWLEDGEMENT_PHRASE}}',
-              'ACKNOWLEDGEMENT_IN_INSTALLED_LOCALE'
+              coalesce(public.atlas_certification_phrase_v1(v_locale,'ACKNOWLEDGEMENT'),'')
             ),
             '{{ACCEPTANCE_PHRASE}}',
-            'EXPLICIT_ACCEPTANCE_IN_INSTALLED_LOCALE'
+            coalesce(public.atlas_certification_phrase_v1(v_locale,'EXPLICIT_ACCEPTANCE'),'')
           )
         end,
         'expected_state_semantic', step.expected_state_semantic,
@@ -249,6 +285,7 @@ begin
     'scenario_code', v_instance.scenario_code,
     'steps', v_steps,
     'step_count', jsonb_array_length(v_steps),
+    'locale', v_locale,
     'binding_sha256', v_resolution->>'binding_sha256',
     'next_action', 'EXECUTE_SCENARIO_STEPS_IN_ORDER'
   );
