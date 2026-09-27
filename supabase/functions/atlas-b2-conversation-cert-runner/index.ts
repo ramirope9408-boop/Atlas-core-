@@ -122,7 +122,7 @@ export default {
 
       // 1. Render the execution input from the canonical company installation.
       const renderRes = await supabase.rpc(
-        "atlas_render_conversation_scenario_payload_v1",
+        "atlas_render_conversation_scenario_payload_for_operator_v1",
         { p_scenario_instance_id: scenarioInstanceId },
       );
 
