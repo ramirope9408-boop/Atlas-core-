@@ -234,9 +234,15 @@ export default {
         {
           p_scenario_instance_id: instanceId,
           p_assertion_results: merged,
-          p_outcome: merged.every((item) => isObject(item) && item.passed === true)
-            ? "PASSED"
-            : "FAILED",
+          p_outcome: merged.some((item) =>
+            isObject(item) &&
+            typeof item.reason === "string" &&
+            item.reason.trim().toUpperCase() === "INSUFFICIENT_EVIDENCE"
+          )
+            ? "BLOCKED"
+            : (merged.every((item) => isObject(item) && item.passed === true)
+              ? "PASSED"
+              : "FAILED"),
         },
       );
 
@@ -244,9 +250,17 @@ export default {
         return errorResponse("SEMANTIC_EVALUATION_GATE_REJECTED", "Semantic evaluation failed contract validation", 502);
       }
 
-      const outcome = merged.every((item) => isObject(item) && item.passed === true)
-        ? "PASSED"
-        : "FAILED";
+      const hasInsufficientEvidence = merged.some((item) =>
+        isObject(item) &&
+        typeof item.reason === "string" &&
+        item.reason.trim().toUpperCase() === "INSUFFICIENT_EVIDENCE"
+      );
+
+      const outcome = hasInsufficientEvidence
+        ? "BLOCKED"
+        : (merged.every((item) => isObject(item) && item.passed === true)
+          ? "PASSED"
+          : "FAILED");
 
       return jsonResponse({
         runtime_version: "B2_CONVERSATION_CERT_SEMANTIC_EVALUATOR_V1",
