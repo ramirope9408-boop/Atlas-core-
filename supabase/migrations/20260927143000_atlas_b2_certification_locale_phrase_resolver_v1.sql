@@ -94,6 +94,9 @@ as $$
     when p_locale = 'es' and p_phrase_code = 'CANONICAL_QUESTION' then 'Cuéntame sobre {{CANONICAL_ENTITY}}.'
     when p_locale = 'es' and p_phrase_code = 'UNSUPPORTED_ATTRIBUTE_QUESTION' then '¿Cuál es el {{UNSUPPORTED_ATTRIBUTE}} de {{CANONICAL_ENTITY}}?'
     when p_locale = 'es' and p_phrase_code = 'VISUAL_REQUEST' then 'Muéstrame una imagen de {{CANONICAL_ENTITY_OR_FAMILY}}.'
+    when p_locale = 'es' and p_phrase_code = 'COMMERCIAL_REQUEST' then 'Quiero cotizar {{CANONICAL_ENTITY}}.'
+    when p_locale = 'es' and p_phrase_code = 'MODIFICATION_REQUEST' then 'Quiero modificar la propuesta actual usando {{CANONICAL_ENTITY}}.'
+    when p_locale = 'es' and p_phrase_code = 'SELF_CORRECTION' then 'Quiero {{INITIAL_REQUEST}}, no, mejor {{CORRECTED_REQUEST}}.'
     when p_locale = 'en' and p_phrase_code = 'ACKNOWLEDGEMENT' then 'Okay, I will wait for it.'
     when p_locale = 'en' and p_phrase_code = 'EXPLICIT_ACCEPTANCE' then 'Yes, I accept the current proposal.'
     when p_locale = 'en' and p_phrase_code = 'PAYMENT_REQUEST' then 'I want to continue with payment.'
@@ -101,6 +104,9 @@ as $$
     when p_locale = 'en' and p_phrase_code = 'CANONICAL_QUESTION' then 'Tell me about {{CANONICAL_ENTITY}}.'
     when p_locale = 'en' and p_phrase_code = 'UNSUPPORTED_ATTRIBUTE_QUESTION' then 'What is the {{UNSUPPORTED_ATTRIBUTE}} of {{CANONICAL_ENTITY}}?'
     when p_locale = 'en' and p_phrase_code = 'VISUAL_REQUEST' then 'Show me an image of {{CANONICAL_ENTITY_OR_FAMILY}}.'
+    when p_locale = 'en' and p_phrase_code = 'COMMERCIAL_REQUEST' then 'I want a quote for {{CANONICAL_ENTITY}}.'
+    when p_locale = 'en' and p_phrase_code = 'MODIFICATION_REQUEST' then 'I want to modify the current proposal using {{CANONICAL_ENTITY}}.'
+    when p_locale = 'en' and p_phrase_code = 'SELF_CORRECTION' then 'I want {{INITIAL_REQUEST}}, no, actually {{CORRECTED_REQUEST}}.'
     else null
   end
 $$;
