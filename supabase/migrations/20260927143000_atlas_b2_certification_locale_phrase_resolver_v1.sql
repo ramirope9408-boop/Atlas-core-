@@ -91,10 +91,16 @@ as $$
     when p_locale = 'es' and p_phrase_code = 'EXPLICIT_ACCEPTANCE' then 'Sí, acepto la propuesta actual.'
     when p_locale = 'es' and p_phrase_code = 'PAYMENT_REQUEST' then 'Quiero continuar con el pago.'
     when p_locale = 'es' and p_phrase_code = 'DOCUMENT_REQUEST' then 'Genera el documento de la versión actual.'
+    when p_locale = 'es' and p_phrase_code = 'CANONICAL_QUESTION' then 'Cuéntame sobre {{CANONICAL_ENTITY}}.'
+    when p_locale = 'es' and p_phrase_code = 'UNSUPPORTED_ATTRIBUTE_QUESTION' then '¿Cuál es el {{UNSUPPORTED_ATTRIBUTE}} de {{CANONICAL_ENTITY}}?'
+    when p_locale = 'es' and p_phrase_code = 'VISUAL_REQUEST' then 'Muéstrame una imagen de {{CANONICAL_ENTITY_OR_FAMILY}}.'
     when p_locale = 'en' and p_phrase_code = 'ACKNOWLEDGEMENT' then 'Okay, I will wait for it.'
     when p_locale = 'en' and p_phrase_code = 'EXPLICIT_ACCEPTANCE' then 'Yes, I accept the current proposal.'
     when p_locale = 'en' and p_phrase_code = 'PAYMENT_REQUEST' then 'I want to continue with payment.'
     when p_locale = 'en' and p_phrase_code = 'DOCUMENT_REQUEST' then 'Generate the document for the current version.'
+    when p_locale = 'en' and p_phrase_code = 'CANONICAL_QUESTION' then 'Tell me about {{CANONICAL_ENTITY}}.'
+    when p_locale = 'en' and p_phrase_code = 'UNSUPPORTED_ATTRIBUTE_QUESTION' then 'What is the {{UNSUPPORTED_ATTRIBUTE}} of {{CANONICAL_ENTITY}}?'
+    when p_locale = 'en' and p_phrase_code = 'VISUAL_REQUEST' then 'Show me an image of {{CANONICAL_ENTITY_OR_FAMILY}}.'
     else null
   end
 $$;
