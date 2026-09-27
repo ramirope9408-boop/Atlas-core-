@@ -69,7 +69,7 @@ export default {
       }
 
       const renderRes = await ctx.supabase.rpc(
-        "atlas_render_conversation_scenario_payload_v1",
+        "atlas_render_conversation_scenario_payload_for_operator_v1",
         { p_scenario_instance_id: instanceId },
       );
 
@@ -224,7 +224,7 @@ export default {
       });
 
       const validateRes = await ctx.supabase.rpc(
-        "atlas_validate_conversation_semantic_evaluation_v1",
+        "atlas_validate_conversation_semantic_evaluation_for_operator_v1",
         {
           p_scenario_instance_id: instanceId,
           p_assertion_results: merged,
