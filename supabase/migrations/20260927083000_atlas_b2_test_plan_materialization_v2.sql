@@ -19,10 +19,13 @@ end;
 $$;
 
 alter table public.atlas_installation_test_plans
+  drop constraint if exists atlas_test_plans_versions_check;
+
+alter table public.atlas_installation_test_plans
   drop constraint if exists atlas_test_plans_version_check;
 
 alter table public.atlas_installation_test_plans
-  add constraint atlas_test_plans_version_check
+  add constraint atlas_test_plans_versions_check
   check (
     plan_version >= 1
     and expected_installation_version >= 1
