@@ -176,7 +176,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $$
 begin
   if auth.uid() is null then
     raise exception using errcode='42501', message='AUTHENTICATION_REQUIRED';
@@ -193,7 +193,7 @@ begin
     p_redacted_error_summary, p_started_at, p_completed_at, p_metadata
   );
 end;
-$;
+$$;
 
 revoke all on function
 public.atlas_register_conversation_scenario_result_for_operator_v1(
