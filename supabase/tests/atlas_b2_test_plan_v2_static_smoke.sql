@@ -31,7 +31,7 @@ begin
   into v_plan_constraint
   from pg_constraint
   where conrelid = 'public.atlas_installation_test_plans'::regclass
-    and conname = 'atlas_test_plans_version_check';
+    and conname = 'atlas_test_plans_versions_check';
 
   if v_plan_constraint is null
      or position('B2_INSTALLATION_TEST_PLAN_V1' in v_plan_constraint) = 0
