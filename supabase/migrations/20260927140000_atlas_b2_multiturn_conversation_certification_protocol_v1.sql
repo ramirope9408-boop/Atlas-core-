@@ -90,32 +90,32 @@ insert into public.atlas_conversation_test_scenario_step_definitions(
    '{{ACKNOWLEDGEMENT_PHRASE}}', null, true),
 
   ('SELF_CORRECTION_FINAL_INTENT', 10, 'SEND_SELF_CORRECTION', 'CUSTOMER', 'MESSAGE',
-   '{{INITIAL_REQUEST}}, no, mejor {{CORRECTED_REQUEST}}', null, true),
+   '{{LOCALE_SELF_CORRECTION}}', null, true),
 
   ('POST_MODIFICATION_ACK_NO_LOOP', 10, 'CREATE_COMMERCIAL_OBJECT', 'CUSTOMER', 'MESSAGE',
-   '{{INITIAL_REQUEST}}', null, false),
+   '{{LOCALE_COMMERCIAL_REQUEST}}', null, false),
   ('POST_MODIFICATION_ACK_NO_LOOP', 20, 'APPLY_MODIFICATION', 'CUSTOMER', 'MESSAGE',
-   '{{CURRENT_MODIFICATION_REQUEST}}', null, false),
+   '{{LOCALE_MODIFICATION_REQUEST}}', null, false),
   ('POST_MODIFICATION_ACK_NO_LOOP', 30, 'SEND_POST_MODIFICATION_ACK', 'CUSTOMER', 'MESSAGE',
    '{{ACKNOWLEDGEMENT_PHRASE}}', null, true),
 
   ('EXPLICIT_ACCEPTANCE_REQUIRED', 10, 'CREATE_VISIBLE_COMMERCIAL_OBJECT', 'CUSTOMER', 'MESSAGE',
-   '{{INITIAL_REQUEST}}', null, false),
+   '{{LOCALE_COMMERCIAL_REQUEST}}', null, false),
   ('EXPLICIT_ACCEPTANCE_REQUIRED', 20, 'SEND_EXPLICIT_ACCEPTANCE', 'CUSTOMER', 'MESSAGE',
    '{{ACCEPTANCE_PHRASE}}', null, true),
 
   ('NON_ACCEPTANCE_ACK_BLOCKED', 10, 'CREATE_VISIBLE_COMMERCIAL_OBJECT', 'CUSTOMER', 'MESSAGE',
-   '{{INITIAL_REQUEST}}', null, false),
+   '{{LOCALE_COMMERCIAL_REQUEST}}', null, false),
   ('NON_ACCEPTANCE_ACK_BLOCKED', 20, 'SEND_NON_ACCEPTANCE_ACK', 'CUSTOMER', 'MESSAGE',
    '{{ACKNOWLEDGEMENT_PHRASE}}', null, true),
 
   ('MODIFICATION_OVERRIDES_STALE_ACCEPTANCE', 10, 'CREATE_VISIBLE_COMMERCIAL_OBJECT', 'CUSTOMER', 'MESSAGE',
-   '{{INITIAL_REQUEST}}', null, false),
+   '{{LOCALE_COMMERCIAL_REQUEST}}', null, false),
   ('MODIFICATION_OVERRIDES_STALE_ACCEPTANCE', 20, 'SEND_CURRENT_MODIFICATION', 'CUSTOMER', 'MESSAGE',
-   '{{CURRENT_MODIFICATION_REQUEST}}', null, true),
+   '{{LOCALE_MODIFICATION_REQUEST}}', null, true),
 
   ('PAYMENT_BEFORE_ACCEPTANCE_BLOCKED', 10, 'CREATE_VISIBLE_COMMERCIAL_OBJECT', 'CUSTOMER', 'MESSAGE',
-   '{{INITIAL_REQUEST}}', null, false),
+   '{{LOCALE_COMMERCIAL_REQUEST}}', null, false),
   ('PAYMENT_BEFORE_ACCEPTANCE_BLOCKED', 20, 'REQUEST_PAYMENT_WITHOUT_ACCEPTANCE', 'CUSTOMER', 'MESSAGE',
    '{{PAYMENT_REQUEST}}', null, true),
 
@@ -123,9 +123,9 @@ insert into public.atlas_conversation_test_scenario_step_definitions(
    '{{LOCALE_VISUAL_REQUEST}}', null, true),
 
   ('DOCUMENT_CURRENT_VERSION_BINDING', 10, 'CREATE_DOCUMENT_SOURCE_OBJECT', 'CUSTOMER', 'MESSAGE',
-   '{{INITIAL_REQUEST}}', null, false),
+   '{{LOCALE_COMMERCIAL_REQUEST}}', null, false),
   ('DOCUMENT_CURRENT_VERSION_BINDING', 20, 'MODIFY_DOCUMENT_SOURCE_OBJECT', 'CUSTOMER', 'MESSAGE',
-   '{{CURRENT_MODIFICATION_REQUEST}}', null, false),
+   '{{LOCALE_MODIFICATION_REQUEST}}', null, false),
   ('DOCUMENT_CURRENT_VERSION_BINDING', 30, 'REQUEST_CURRENT_DOCUMENT', 'CUSTOMER', 'MESSAGE',
    '{{DOCUMENT_REQUEST}}', null, true);
 
@@ -222,7 +222,19 @@ begin
                                 replace(
                                   replace(
                                     replace(
-                                      step.message_template,
+                                      replace(
+                                        replace(
+                                          replace(
+                                            step.message_template,
+                                            '{{LOCALE_COMMERCIAL_REQUEST}}',
+                                            coalesce(public.atlas_certification_phrase_v1(v_locale,'COMMERCIAL_REQUEST'),'')
+                                          ),
+                                          '{{LOCALE_MODIFICATION_REQUEST}}',
+                                          coalesce(public.atlas_certification_phrase_v1(v_locale,'MODIFICATION_REQUEST'),'')
+                                        ),
+                                        '{{LOCALE_SELF_CORRECTION}}',
+                                        coalesce(public.atlas_certification_phrase_v1(v_locale,'SELF_CORRECTION'),'')
+                                      ),
                                       '{{LOCALE_CANONICAL_QUESTION}}',
                                       coalesce(public.atlas_certification_phrase_v1(v_locale,'CANONICAL_QUESTION'),'')
                                     ),
