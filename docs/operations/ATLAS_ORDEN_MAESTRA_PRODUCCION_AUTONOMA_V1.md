@@ -259,3 +259,106 @@ Esta orden aplica inmediatamente al trabajo en:
 
 No autoriza por sí sola un gasto nuevo ni un cutover irreversible de producción.
 
+
+
+## 14. Regla de aceleración de 30 días
+
+Ventana operativa: primeros 30 días de infraestructura de desarrollo acelerada.
+
+Objetivo: producir avances reales, grandes y medibles en ATLAS. Esta ventana no se usa para acumular documentación, microajustes o aprobaciones parciales sin cierre.
+
+### 14.1 Unidad mínima de progreso
+
+La unidad mínima de progreso es un BLOQUE FUNCIONAL CERRADO.
+
+Un bloque solo cuenta como avance real cuando cumple, según aplique:
+
+- código creado o corregido;
+- migraciones listas;
+- pruebas ejecutables;
+- errores detectados y corregidos;
+- regresión pasada;
+- evidencia registrada;
+- estado de certificación definido;
+- integración con el bloque siguiente preparada.
+
+Documentación sin implementación no cuenta como avance principal.
+
+### 14.2 Prioridad de ejecución
+
+Durante estos 30 días se prioriza, en este orden:
+
+1. B2 V2 y fábrica de instalación/certificación.
+2. Valentina reusable y preparada para producción.
+3. Runtime conversacional universal.
+4. Certificación multiempresa.
+5. Integración técnica necesaria para despliegue seguro.
+6. UI/operación solo cuando desbloquee el uso real.
+7. Ramas futuras de ATLAS únicamente si no interrumpen los objetivos anteriores.
+
+### 14.3 Regla de profundidad
+
+No saltar de módulo en módulo dejando capas incompletas.
+
+Cuando se abre un bloque:
+- construir;
+- validar;
+- romper en pruebas;
+- corregir;
+- retestear;
+- hacer regresión;
+- certificar;
+- entonces continuar.
+
+### 14.4 Regla de velocidad
+
+Se evita reportar microprogreso.
+
+El sistema debe intentar cerrar múltiples subfases dentro de una misma sesión antes de volver al propietario, salvo límites A-D definidos en esta orden.
+
+### 14.5 Métricas de avance
+
+Cada bloque debe poder responder:
+
+- qué capacidad nueva existe;
+- qué error real fue eliminado;
+- qué prueba nueva quedó permanente;
+- qué porcentaje del flujo está certificado;
+- qué riesgo técnico disminuyó;
+- qué dependencia dejó de bloquear;
+- qué parte del camino a producción se acortó.
+
+### 14.6 Prohibición de falsa velocidad
+
+No se considera avance:
+- crear archivos sin conectarlos;
+- escribir planes sin ejecución;
+- declarar PASS sin prueba;
+- acumular TODOs;
+- duplicar arquitectura;
+- rehacer lo ya certificado sin motivo;
+- mover problemas a otra capa;
+- crear features nuevas mientras el bloque crítico sigue roto.
+
+### 14.7 Resultado esperado al día 30
+
+Al cierre de la ventana se debe tener evidencia suficiente para decidir si la infraestructura acelerada se mantiene o se reduce.
+
+La evaluación se hará por resultados, no por percepción.
+
+Preguntas de cierre:
+- ¿cuántos bloques funcionales quedaron certificados?
+- ¿qué parte de Valentina está realmente lista para producción?
+- ¿B2 puede instalar y certificar otra empresa sin trabajo artesanal?
+- ¿cuánto disminuyó la intervención humana por microdecisiones?
+- ¿cuántos errores se detectaron automáticamente antes de producción?
+- ¿cuánto tiempo promedio tarda ahora un ciclo construir→corregir→certificar?
+
+Si los resultados justifican el costo, se mantiene la infraestructura.
+Si no, se vuelve a un modo de menor costo sin perder lo construido.
+
+### 14.8 Regla ejecutiva
+
+Durante esta ventana, el objetivo no es “trabajar mucho”.
+
+El objetivo es que ATLAS termine cada semana materialmente más cerca de operar, instalar clientes y generar ingresos.
