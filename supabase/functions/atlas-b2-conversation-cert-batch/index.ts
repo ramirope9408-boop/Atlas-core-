@@ -59,7 +59,7 @@ export default {
       }
 
       const nextRes = await ctx.supabase.rpc(
-        "atlas_get_next_conversation_certification_scenarios_v1",
+        "atlas_get_next_conversation_certification_scenarios_for_operator_v1",
         {
           p_scenario_plan_id: scenarioPlanId,
           p_limit: limit,
@@ -110,7 +110,7 @@ export default {
       }
 
       const summaryRes = await ctx.supabase.rpc(
-        "atlas_compute_conversation_certification_batch_summary_v1",
+        "atlas_compute_conversation_certification_batch_summary_for_operator_v1",
         { p_scenario_plan_id: scenarioPlanId },
       );
 
