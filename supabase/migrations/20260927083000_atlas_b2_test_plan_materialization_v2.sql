@@ -221,30 +221,8 @@ as $$
   end
 $$;
 
-create or replace function public.atlas_test_assertion_contract_v2(
-  p_test_code text,
-  p_description text,
-  p_required_evidence_kinds text[],
-  p_g03_criterion_codes text[]
-)
-returns jsonb
-language sql
-immutable
-strict
-security definer
-set search_path = public, pg_temp
-as $$
-  select jsonb_build_array(
-    jsonb_build_object(
-      'assertion_code', p_test_code || '_VERIFIED',
-      'description', p_description,
-      'required', true,
-      'required_evidence_kinds',
-        to_jsonb(p_required_evidence_kinds),
-      'g03_criterion_codes', to_jsonb(p_g03_criterion_codes)
-    )
-  )
-$$;
+-- assertion contract V2 is defined by 20260927080000 and intentionally not redefined here.
+
 
 revoke all on function public.atlas_test_case_order_v1(text)
 from public, anon, authenticated;
