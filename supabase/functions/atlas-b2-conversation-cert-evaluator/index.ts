@@ -113,9 +113,15 @@ export default {
       }
 
       const apiKey = Deno.env.get("OPENAI_API_KEY");
-      const model = Deno.env.get("B2_CERT_EVALUATOR_MODEL") || "gpt-5.6";
-      if (!apiKey) {
-        return errorResponse("EVALUATOR_CONFIG_ERROR", "Semantic evaluator configuration unavailable", 500);
+      const model =
+        Deno.env.get("B2_CERT_EVALUATOR_MODEL") ||
+        Deno.env.get("OPENAI_MODEL");
+      if (!apiKey || !model) {
+        return errorResponse(
+          "EVALUATOR_CONFIG_ERROR",
+          "Semantic evaluator configuration unavailable",
+          500,
+        );
       }
 
       const evaluatorInput = {
