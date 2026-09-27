@@ -29,6 +29,16 @@ begin
 end;
 $$;
 
+alter table public.atlas_conversation_test_scenario_instances
+  add constraint atlas_conversation_scenario_instance_identity_key
+  unique (
+    id,
+    scenario_plan_id,
+    test_plan_id,
+    installation_id,
+    empresa_id
+  );
+
 create table public.atlas_conversation_test_scenario_results (
   id uuid primary key default gen_random_uuid(),
   scenario_instance_id uuid not null,
@@ -127,16 +137,6 @@ create table public.atlas_conversation_test_scenario_results (
       )
     )
 );
-
-alter table public.atlas_conversation_test_scenario_instances
-  add constraint atlas_conversation_scenario_instance_identity_key
-  unique (
-    id,
-    scenario_plan_id,
-    test_plan_id,
-    installation_id,
-    empresa_id
-  );
 
 create index idx_atlas_conversation_scenario_results_plan
   on public.atlas_conversation_test_scenario_results(
