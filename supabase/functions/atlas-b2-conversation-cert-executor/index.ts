@@ -151,7 +151,7 @@ export default {
       const evidenceReference = "test-evidence://b2-conversation/" + instanceId + "/" + requestId;
 
       const registerRes = await ctx.supabase.rpc(
-        "atlas_register_conversation_scenario_result_v1",
+        "atlas_register_conversation_scenario_result_for_operator_v1",
         {
           p_scenario_instance_id: instanceId,
           p_outcome: finalOutcome,
