@@ -1,7 +1,7 @@
 # ATLAS — ORDEN MAESTRA DE PRODUCCIÓN AUTÓNOMA V1
 
 Fecha: 2026-09-27
-Ámbito: ATLAS / B2 / Valentina / módulos futuros
+Ámbito: TODO EL ECOSISTEMA ATLAS — Core, B2, Valentina, UI/UX, Legal, Finance, Shield, Web, Creator, Commerce, Intelligence, Company Builder, integraciones, infraestructura, datos y módulos futuros
 Modo: CONSTRUIR → VALIDAR → CORREGIR → RETESTEAR → CERTIFICAR → PROSEGUIR
 Estado: ACTIVA COMO REGLA OPERATIVA DE CONSTRUCCIÓN
 
@@ -248,14 +248,35 @@ El objetivo operativo es reducir ciclos de consulta humana y aumentar ciclos aut
 
 ## 13. Estado actual de aplicación
 
-Esta orden aplica inmediatamente al trabajo en:
-- audit/b2-generalization-20260927
-- B2 Test Plan V2
-- certificación conversacional
-- runner multi-turn
-- regresión
-- validación SQL/TypeScript
-- paquetes de certificación/UAT
+Esta orden NO pertenece únicamente a Valentina ni a B2.
+
+Es la regla maestra de construcción de TODO ATLAS y aplica a cualquier frente presente o futuro del ecosistema, incluyendo:
+
+- ATLAS Core
+- B2 / Installation Factory
+- Valentina y futuros agentes
+- runtime conversacional y de herramientas
+- datos, memoria, knowledge y RAG
+- seguridad, permisos, tenancy y auditoría
+- Atlas UI/UX
+- Atlas Legal & Compliance
+- Atlas Finance
+- Atlas Shield
+- Atlas Web
+- Atlas Creator
+- Atlas Commerce
+- Atlas Intelligence
+- Atlas Company / Company Builder
+- Microapp Factory
+- integraciones y adapters
+- observabilidad
+- infraestructura y despliegue
+- billing y monetización
+- cualquier módulo futuro aprobado dentro del ecosistema
+
+Cada rama puede tener su propio roadmap, pero todas heredan la misma disciplina:
+
+CONSTRUIR → VALIDAR → CORREGIR → RETESTEAR → REGRESIÓN → CERTIFICAR → INTEGRAR → PROSEGUIR.
 
 No autoriza por sí sola un gasto nuevo ni un cutover irreversible de producción.
 
@@ -286,15 +307,36 @@ Documentación sin implementación no cuenta como avance principal.
 
 ### 14.2 Prioridad de ejecución
 
-Durante estos 30 días se prioriza, en este orden:
+La ventana de 30 días es una aceleración de TODO ATLAS, no una campaña exclusiva de Valentina.
 
-1. B2 V2 y fábrica de instalación/certificación.
-2. Valentina reusable y preparada para producción.
-3. Runtime conversacional universal.
-4. Certificación multiempresa.
-5. Integración técnica necesaria para despliegue seguro.
-6. UI/operación solo cuando desbloquee el uso real.
-7. Ramas futuras de ATLAS únicamente si no interrumpen los objetivos anteriores.
+El principio de prioridad es:
+
+1. cerrar primero los cuellos de botella que impiden que ATLAS funcione como ecosistema;
+2. consolidar los componentes reusable/core que sirven a varias ramas;
+3. llevar a estado usable/certificable los módulos que ya están más avanzados;
+4. conectar entre sí las ramas que hoy existen separadas;
+5. construir nuevas ramas únicamente cuando su definición no fracture los frentes críticos abiertos;
+6. priorizar componentes que acerquen ATLAS a operación real, clientes, monetización o capacidad reusable.
+
+Durante esta ventana pueden avanzar en paralelo, cuando sus dependencias lo permitan:
+
+- ATLAS Core y arquitectura base;
+- B2 / fábrica de instalación y certificación;
+- Valentina como primer agente comercial reusable;
+- UI/UX y operación;
+- seguridad, permisos, tenancy y observabilidad;
+- Legal & Compliance;
+- Billing / Finance;
+- Shield;
+- Web;
+- Creator;
+- Commerce;
+- Intelligence;
+- Microapp Factory;
+- Company Builder y demás ramas estratégicas.
+
+No existe una regla que obligue a terminar todo Valentina antes de tocar cualquier otra rama.
+La regla correcta es evitar dispersión sin integración: cada frente abierto debe producir un bloque funcional cerrable y conectarse al ecosistema.
 
 ### 14.3 Regla de profundidad
 
@@ -348,8 +390,12 @@ La evaluación se hará por resultados, no por percepción.
 
 Preguntas de cierre:
 - ¿cuántos bloques funcionales quedaron certificados?
+- ¿qué porcentaje del ecosistema ATLAS está realmente operativo, conectado o certificado?
+- ¿qué módulos dejaron de ser conceptuales y pasaron a implementación real?
 - ¿qué parte de Valentina está realmente lista para producción?
 - ¿B2 puede instalar y certificar otra empresa sin trabajo artesanal?
+- ¿qué nuevas capacidades reusable ya sirven a más de una rama de ATLAS?
+- ¿qué integraciones entre ramas quedaron funcionando de extremo a extremo?
 - ¿cuánto disminuyó la intervención humana por microdecisiones?
 - ¿cuántos errores se detectaron automáticamente antes de producción?
 - ¿cuánto tiempo promedio tarda ahora un ciclo construir→corregir→certificar?
@@ -361,4 +407,4 @@ Si no, se vuelve a un modo de menor costo sin perder lo construido.
 
 Durante esta ventana, el objetivo no es “trabajar mucho”.
 
-El objetivo es que ATLAS termine cada semana materialmente más cerca de operar, instalar clientes y generar ingresos.
+El objetivo es que TODO ATLAS termine cada semana materialmente más cerca de convertirse en un ecosistema operativo, integrado, certificable, instalable, vendible y capaz de generar ingresos.
