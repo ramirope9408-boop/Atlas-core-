@@ -44,7 +44,7 @@ create table public.atlas_conversation_test_scenario_step_definitions (
     on delete restrict,
 
   constraint atlas_conversation_step_definition_order_check
-    check (step_order between 1 and 20),
+    check (step_order between 1 and 1000),
 
   constraint atlas_conversation_step_definition_code_check
     check (
