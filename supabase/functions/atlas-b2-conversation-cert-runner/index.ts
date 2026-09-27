@@ -1,5 +1,52 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
-import { withSupabase } from "@supabase/server";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
+type AtlasSupabaseContext = {
+  authMode: "user" | "anonymous";
+  userClaims: { id: string } | null;
+  supabase: ReturnType<typeof createClient> | null;
+};
+
+function withSupabase(
+  _options: { auth: "user" },
+  handler: (req: Request, ctx: AtlasSupabaseContext) => Promise<Response>,
+) {
+  return async (req: Request): Promise<Response> => {
+    const authorization = req.headers.get("Authorization");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (!authorization?.startsWith("Bearer ") || !supabaseUrl || !anonKey) {
+      return handler(req, {
+        authMode: "anonymous",
+        userClaims: null,
+        supabase: null,
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const token = authorization.slice("Bearer ".length);
+    const { data, error } = await supabase.auth.getUser(token);
+
+    if (error || !data.user) {
+      return handler(req, {
+        authMode: "anonymous",
+        userClaims: null,
+        supabase: null,
+      });
+    }
+
+    return handler(req, {
+      authMode: "user",
+      userClaims: { id: data.user.id },
+      supabase,
+    });
+  };
+}
 
 // ATLAS B2 - CONVERSATION CERTIFICATION RUNNER V1.1
 // Executes explicit multi-turn certification scenarios against the installed
