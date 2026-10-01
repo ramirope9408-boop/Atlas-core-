@@ -35,8 +35,13 @@ export function interpret(raw:unknown,context:Json):Json {
     const span=normalize(d.field_evidence?.[k]);if(!span||!source.includes(span))throw new Error('UNGROUNDED_EVENT_FIELD');
     ep[k]=k==='people_count'?integer(v):v;if(k==='event_date')businessDate(v);
   }
-  const service=d.requirements?.service_type;
+  let service=d.requirements?.service_type;
   const allowed=(context.company_policy?.commercial_rules||[]).filter((r:Json)=>r.rule_type==='MINIMUM_SERVICE_VALUE').map((r:Json)=>r.service_type);
+  if(!service){
+    if(/(servicio completo|evento completo|servicio integral|evento integral)/.test(source)&&allowed.includes('FULL_EVENT'))service='FULL_EVENT';
+    else if(/(mesa de finger|mesa finger|finger table)/.test(source)&&allowed.includes('FINGER_TABLE'))service='FINGER_TABLE';
+    else if(/(cajas individuales|caja individual|finger box|cajas de pasabocas)/.test(source)&&allowed.includes('FINGER_BOX'))service='FINGER_BOX';
+  }
   if(service&&!allowed.includes(service))throw new Error('UNKNOWN_SERVICE_TYPE');
   const req:Json={};
   if(service)req.service_type=service;
@@ -69,9 +74,11 @@ export function interpret(raw:unknown,context:Json):Json {
     if(!['ADD','REMOVE','SET'].includes(op.op))throw new Error('INVALID_PRODUCT_OPERATION');
     patch.products.push({op:op.op,product_id:id,...(op.op==='REMOVE'?{}:{quantity:integer(op.quantity)})});
   }
-  if(!patch.products.length)delete patch.products;
+  if(patch.products?.length&&!/(agrega|agregar|anexa|anexar|incluye|incluir|quita|quitar|elimina|eliminar|reemplaza|reemplazar|cambia|cambiar|pon|sumale|súmale|menos|mas|más)/.test(source))delete patch.products;
+  if(!patch.products?.length)delete patch.products;
   if(Object.keys(patch).length)action='MODIFY'; // a mixed accept+change never accepts
   if(ack)action='NONE';
+  if(action==='MODIFY'&&!Object.keys(patch).length&&/^(modificar|modifica|actualizar|actualiza).*(cotiza|cotizacion|cotización)[.! ]*$/.test(source))action='NONE';
   const start=d.start_new_event===true;
   if(start&&!hasEvidence)throw new Error('NEW_EVENT_EVIDENCE_REQUIRED');
   const visualIds=d.visual_product_ids||[];if(!Array.isArray(visualIds)||visualIds.some((id:string)=>!catalog.has(id)))throw new Error('NON_CANONICAL_VISUAL');
