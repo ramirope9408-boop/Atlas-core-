@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {createClient} from "jsr:@supabase/supabase-js@2";
 import {loadAgentContext,loadCompanyProfile} from "./context-manager.ts";
 import {buildAgentRequest,runAgentLoop} from "./runner.ts";
-type Body={empresa_id:string;conversation_id:string;source_message_id:string;customer_message:string;company_profile?:Record<string,unknown>;dry_run?:boolean};
+type Body={empresa_id:string;conversation_id:string;source_message_id:string;customer_message:string;dry_run?:boolean};
 const json=(s:number,b:unknown)=>new Response(JSON.stringify(b),{status:s,headers:{"content-type":"application/json"}});
 Deno.serve(async(req)=>{
  if(req.method!=="POST")return json(405,{ok:false,error:"METHOD_NOT_ALLOWED"});
@@ -14,7 +14,7 @@ Deno.serve(async(req)=>{
   const client=createClient(url,key,{auth:{persistSession:false}});
   const context=await loadAgentContext(client,body);
   const canonicalProfile=await loadCompanyProfile(client,body.empresa_id);
-  const request=buildAgentRequest({company_profile:body.company_profile??canonicalProfile,context,customer_message:body.customer_message});
+  const request=buildAgentRequest({company_profile:canonicalProfile,context,customer_message:body.customer_message});
   if(body.dry_run!==false)return json(200,{ok:true,mode:"DRY_RUN",request});
   const apiKey=Deno.env.get("OPENAI_API_KEY");
   if(!apiKey)return json(503,{ok:false,error:"MODEL_CONFIG_MISSING"});
