@@ -224,6 +224,25 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
     }
 
     case "register_payment_evidence": {
+      const {data:source,error:sourceError}=await client.from("atlas_conversation_messages")
+        .select("message_type,raw_payload")
+        .eq("id",source_message_id)
+        .eq("empresa_id",empresa_id)
+        .eq("conversation_id",conversation_id)
+        .maybeSingle();
+      if(sourceError||!source) throw new Error("SOURCE_MESSAGE_READ_FAILED");
+
+      const mediaType=String(source.message_type??"").toUpperCase();
+      if(!["IMAGE","DOCUMENT"].includes(mediaType)){
+        return {
+          ok:false,
+          code:"PAYMENT_EVIDENCE_MEDIA_REQUIRED",
+          source_message_type:mediaType,
+          reservation_confirmed:false,
+          next_action:"ASK_FOR_PAYMENT_EVIDENCE"
+        };
+      }
+
       const claimedAmount=args?.claimed_amount==null?null:Number(args.claimed_amount);
       const providerReference=args?.provider_reference==null?null:String(args.provider_reference);
       const note=args?.note==null?null:String(args.note);
@@ -279,6 +298,35 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
         return data;
       }
       if(action==="MODIFY"){
+        const {data:confirmedPayment}=await client.from("atlas_payment_evidences")
+          .select("id,status,quote_builder_id")
+          .eq("empresa_id",empresa_id)
+          .eq("conversation_id",conversation_id)
+          .eq("status","CONFIRMED")
+          .order("reviewed_at",{ascending:false})
+          .limit(1)
+          .maybeSingle();
+
+        const {data:confirmedReservation}=await client.from("atlas_commercial_reservations")
+          .select("id,status,quote_builder_id")
+          .eq("empresa_id",empresa_id)
+          .eq("conversation_id",conversation_id)
+          .eq("status","CONFIRMED")
+          .order("confirmed_at",{ascending:false})
+          .limit(1)
+          .maybeSingle();
+
+        if(confirmedPayment||confirmedReservation){
+          return {
+            ok:false,
+            code:"POST_PAYMENT_CHANGE_REQUIRES_REVIEW",
+            payment_evidence_id:confirmedPayment?.id??null,
+            reservation_id:confirmedReservation?.id??null,
+            quote_builder_id:confirmedReservation?.quote_builder_id??confirmedPayment?.quote_builder_id??quoteId,
+            next_action:"REQUEST_EXCEPTION_OR_HANDOFF"
+          };
+        }
+
         const interpretation=args?.interpretation;
         if(!interpretation||typeof interpretation!=="object") return {code:"MODIFICATION_ARGUMENTS_REQUIRED",enabled:false};
 
