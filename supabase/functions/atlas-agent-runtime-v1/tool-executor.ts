@@ -378,7 +378,7 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       const guard=await requireStableVoiceConfirmation(
         client,empresa_id,conversation_id,source_message_id,
         "REQUEST_CANCELLATION",
-        {reason:args?.customer_reason==null?null:String(args.customer_reason)}
+        {}
       );
       if(guard.required&&!guard.confirmed) return guard;
 
