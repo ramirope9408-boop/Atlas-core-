@@ -72,9 +72,35 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       return {code:"VISUALS_READY",items};
     }
 
-    case "create_quote":
-    case "quote_action":
-      return {code:"CANONICAL_COMMERCIAL_ACTION_REQUIRES_TURN_ADAPTER",enabled:false};
+    case "create_quote": {
+      const {data:w,error}=await client.rpc("atlas_get_active_conversation_work_state_v1",{p_empresa_id:empresa_id,p_conversation_id:conversation_id});
+      if(error) throw new Error("WORK_STATE_READ_FAILED");
+      const stateId=w?.state_id, stateVersion=Number(w?.state_version??0);
+      if(!stateId) throw new Error("ACTIVE_OPPORTUNITY_REQUIRED");
+      const decision={requested_action:"CREATE",action_evidence:"agent_tool",confidence:1,work_intent:"QUOTE_REQUEST"};
+      const {data,error:execError}=await client.rpc("atlas_commercial_execute_turn",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,p_expected_state_id:stateId,p_expected_version:stateVersion,p_decision:decision});
+      if(execError) throw new Error("CREATE_QUOTE_FAILED");
+      return data;
+    }
+
+    case "quote_action": {
+      const action=String(args?.action??"GET");
+      const {data:w,error}=await client.rpc("atlas_get_active_conversation_work_state_v1",{p_empresa_id:empresa_id,p_conversation_id:conversation_id});
+      if(error) throw new Error("WORK_STATE_READ_FAILED");
+      const quoteId=w?.active_quote_builder_id??null;
+      if(action==="GET"){
+        const {data,error:qError}=await client.rpc("atlas_commercial_quote",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_quote_id:quoteId});
+        if(qError) throw new Error("QUOTE_READ_FAILED");
+        return data;
+      }
+      if(action==="MODIFY") return {code:"MODIFICATION_ARGUMENTS_REQUIRED",enabled:false};
+      if(!w?.state_id) throw new Error("ACTIVE_OPPORTUNITY_REQUIRED");
+      const requested_action=action==="ACCEPT"?"ACCEPT":"PAYMENT";
+      const decision={requested_action,action_evidence:"agent_tool",confidence:1,work_intent:requested_action};
+      const {data,error:execError}=await client.rpc("atlas_commercial_execute_turn",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,p_expected_state_id:w.state_id,p_expected_version:Number(w.state_version??0),p_decision:decision});
+      if(execError) throw new Error("QUOTE_ACTION_FAILED");
+      return data;
+    }
 
     default: throw new Error("UNKNOWN_AGENT_TOOL");
   }
