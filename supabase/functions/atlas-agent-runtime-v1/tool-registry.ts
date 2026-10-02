@@ -104,6 +104,18 @@ export const ATLAS_AGENT_TOOLS = [
   },
   {
     type: "function",
+    name: "request_cancellation",
+    description: "Handle a customer's decision to withdraw/cancel. ATLAS will complete a pre-payment withdrawal when safe, but after confirmed payment or reservation it only creates a human-reviewed cancellation request and does not cancel automatically.",
+    parameters: {
+      type:"object",
+      properties:{
+        customer_reason:{type:["string","null"]}
+      },
+      additionalProperties:false
+    }
+  },
+  {
+    type: "function",
     name: "create_quote",
     description: "Request a canonical quote only when the active opportunity satisfies company requirements.",
     parameters: { type:"object", properties:{}, additionalProperties:false }
