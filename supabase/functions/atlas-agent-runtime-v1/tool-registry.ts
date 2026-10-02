@@ -20,7 +20,7 @@ export const ATLAS_AGENT_TOOLS = [
   {
     type: "function",
     name: "search_catalog",
-    description: "Find canonical company products relevant to the customer's request. Use this instead of inventing recommendations.",
+    description: "Find canonical company products. Send concise catalog search terms, usually 1-3 product or category words, not a long natural-language sentence. For compound preferences, make multiple searches when useful. Use this instead of inventing recommendations.",
     parameters: { type:"object", properties:{ query:{type:"string"}, exclude_product_ids:{type:"array",items:{type:"string"}} }, required:["query"], additionalProperties:false }
   },
   {
