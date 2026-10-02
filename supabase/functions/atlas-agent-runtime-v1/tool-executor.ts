@@ -240,6 +240,22 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       return data;
     }
 
+    case "request_commercial_exception": {
+      const type=String(args?.exception_type??"").trim();
+      if(!type) throw new Error("EXCEPTION_TYPE_REQUIRED");
+
+      const {data,error}=await client.rpc("atlas_request_commercial_exception_v1",{
+        p_empresa_id:empresa_id,
+        p_conversation_id:conversation_id,
+        p_source_message_id:source_message_id,
+        p_exception_type:type,
+        p_customer_reason:args?.customer_reason==null?null:String(args.customer_reason),
+        p_metadata:{requested_by:"GPT_5_6_AGENT"}
+      });
+      if(error) throw new Error("COMMERCIAL_EXCEPTION_REQUEST_FAILED");
+      return data;
+    }
+
     case "create_quote": {
       const {data:w,error}=await client.rpc("atlas_get_active_conversation_work_state_v1",{p_empresa_id:empresa_id,p_conversation_id:conversation_id});
       if(error) throw new Error("WORK_STATE_READ_FAILED");
