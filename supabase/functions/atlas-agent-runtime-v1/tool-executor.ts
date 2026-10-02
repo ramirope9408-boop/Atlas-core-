@@ -75,6 +75,47 @@ async function requireStableVoiceConfirmation(
   };
  }
 
+ const {data:originMessage,error:originError}=await client.from("atlas_conversation_messages")
+  .select("created_at")
+  .eq("id",pending.originating_message_id)
+  .eq("empresa_id",empresa_id)
+  .eq("conversation_id",conversation_id)
+  .maybeSingle();
+ if(originError||!originMessage) throw new Error("VOICE_CONFIRMATION_ORIGIN_READ_FAILED");
+
+ const {data:currentMessage,error:currentError}=await client.from("atlas_conversation_messages")
+  .select("created_at")
+  .eq("id",source_message_id)
+  .eq("empresa_id",empresa_id)
+  .eq("conversation_id",conversation_id)
+  .maybeSingle();
+ if(currentError||!currentMessage) throw new Error("VOICE_CONFIRMATION_CURRENT_READ_FAILED");
+
+ const {count:interveningCount,error:interveningError}=await client.from("atlas_conversation_messages")
+  .select("id",{count:"exact",head:true})
+  .eq("empresa_id",empresa_id)
+  .eq("conversation_id",conversation_id)
+  .eq("direction","INBOUND")
+  .eq("actor_type","CUSTOMER")
+  .eq("channel","VOICE_CALL")
+  .gt("created_at",originMessage.created_at)
+  .lt("created_at",currentMessage.created_at);
+ if(interveningError) throw new Error("VOICE_CONFIRMATION_SEQUENCE_READ_FAILED");
+
+ if((interveningCount??0)>0){
+  await client.from("atlas_voice_action_confirmations")
+   .update({status:"CANCELLED",updated_at:new Date().toISOString()})
+   .eq("id",pending.id)
+   .eq("empresa_id",empresa_id);
+  return {
+   required:true,
+   confirmed:false,
+   code:"VOICE_CONFIRMATION_SEQUENCE_BROKEN",
+   action_key,
+   next_action:"ASK_EXPLICIT_CONFIRMATION_AGAIN"
+  };
+ }
+
  const sameContext=JSON.stringify(pending.action_context??{})===JSON.stringify(action_context??{});
  if(!sameContext){
   await client.from("atlas_voice_action_confirmations")
