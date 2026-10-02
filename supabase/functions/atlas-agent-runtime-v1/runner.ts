@@ -79,7 +79,7 @@ export async function runAgentLoop(opts:{client:any;empresa_id:string;conversati
   for(const call of calls){
    const args=parseArgs(call.arguments);
    const result=await executeAtlasTool(
-    {client:opts.client,empresa_id:opts.empresa_id,conversation_id:opts.conversation_id,source_message_id:opts.source_message_id},
+    {client:opts.client,empresa_id:opts.empresa_id,conversation_id:opts.conversation_id,source_message_id:opts.source_message_id,apiKey:opts.apiKey},
     call.name,
     args
    );
