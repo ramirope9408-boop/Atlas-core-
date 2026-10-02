@@ -1,13 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {createClient} from "jsr:@supabase/supabase-js@2";
-import {loadAgentContext,loadCompanyProfile} from "./context-manager.ts";
+import {loadAgentContext,loadCompanyProfile,loadCanonicalSourceMessage} from "./context-manager.ts";
 import {buildAgentRequest,runAgentLoop} from "./runner.ts";
 
 type Body={
  empresa_id:string;
  conversation_id:string;
  source_message_id:string;
- customer_message:string;
+ customer_message?:string;
  dry_run?:boolean;
 };
 
@@ -21,7 +21,7 @@ Deno.serve(async(req)=>{
 
  try{
   const body=await req.json() as Body;
-  for(const k of ["empresa_id","conversation_id","source_message_id","customer_message"] as const){
+  for(const k of ["empresa_id","conversation_id","source_message_id"] as const){
    if(!body[k])return json(400,{ok:false,error:`MISSING_${k.toUpperCase()}`});
   }
 
@@ -30,12 +30,20 @@ Deno.serve(async(req)=>{
   if(!url||!key)return json(500,{ok:false,error:"RUNTIME_CONFIG_MISSING"});
 
   const client=createClient(url,key,{auth:{persistSession:false}});
+  const sourceMessage=await loadCanonicalSourceMessage(client,body);
   const context=await loadAgentContext(client,body);
   const canonicalProfile=await loadCompanyProfile(client,body.empresa_id);
+
+  const canonicalCustomerMessage=sourceMessage.text
+    || (sourceMessage.message_type==="IMAGE"?"[Customer sent an image]":
+        sourceMessage.message_type==="DOCUMENT"?"[Customer sent a document]":
+        sourceMessage.message_type==="AUDIO"?"[Customer sent an audio message with no usable transcription]":
+        "[Customer sent a message with no usable text]");
+
   const request=buildAgentRequest({
    company_profile:canonicalProfile,
    context,
-   customer_message:body.customer_message
+   customer_message:canonicalCustomerMessage
   });
 
   if(body.dry_run!==false){
@@ -60,7 +68,12 @@ Deno.serve(async(req)=>{
   return json(200,{
    ...result,
    mode:"AGENT_POC",
-   delivery_enabled:false
+   delivery_enabled:false,
+   source_grounding:{
+    source_message_id:sourceMessage.id,
+    message_type:sourceMessage.message_type,
+    caller_text_ignored:true
+   }
   });
  }catch(e){
   return json(500,{
