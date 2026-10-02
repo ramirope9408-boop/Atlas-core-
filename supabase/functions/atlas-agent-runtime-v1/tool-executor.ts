@@ -59,7 +59,15 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       const {data:products,error}=await client.from("productos").select("id,nombre")
         .eq("empresa_id",empresa_id).in("id",productIds).eq("activo",true).eq("estado","published").is("deleted_at",null);
       if(error||asArray(products).length!==new Set(productIds).size) throw new Error("NON_CANONICAL_PRODUCT");
-      const selected=asArray(products).map((p:any)=>({product_id:p.id,quantity:1}));
+      const {data:currentState}=await client.rpc("atlas_get_active_conversation_work_state_v1",{
+        p_empresa_id:empresa_id,p_conversation_id:conversation_id
+      });
+      const recommended=asArray(currentState?.recommended_items);
+      const selected=asArray(products).map((p:any)=>{
+        const prior=recommended.find((r:any)=>String(r?.product_id)===String(p.id));
+        const quantity=Math.max(1,Number(prior?.quantity??1));
+        return {product_id:p.id,quantity};
+      });
       const {data,error:applyError}=await client.rpc("atlas_apply_conversation_work_state_v4",{
         p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,
         p_patch:{work_intent:"SELECT",selected_products:selected}
