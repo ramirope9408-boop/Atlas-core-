@@ -70,6 +70,40 @@ export const ATLAS_AGENT_TOOLS = [
   },
   {
     type: "function",
+    name: "get_transaction_state",
+    description: "Read the current accepted-quote, payment-evidence and reservation state for this conversation. Use this before telling the customer that payment or reservation is confirmed.",
+    parameters: { type:"object", properties:{}, additionalProperties:false }
+  },
+  {
+    type: "function",
+    name: "register_payment_evidence",
+    description: "Register that the customer sent payment evidence. This NEVER confirms payment or reservation. Use only when the current customer message actually contains or claims a payment receipt/evidence.",
+    parameters: {
+      type:"object",
+      properties:{
+        claimed_amount:{type:["number","null"]},
+        provider_reference:{type:["string","null"]},
+        note:{type:["string","null"]}
+      },
+      additionalProperties:false
+    }
+  },
+  {
+    type: "function",
+    name: "request_commercial_exception",
+    description: "Create a governed exception request when the customer asks for something outside normal company policy, such as holding a date without confirmed payment. This does not approve the exception; it sends the case to human review.",
+    parameters: {
+      type:"object",
+      properties:{
+        exception_type:{type:"string"},
+        customer_reason:{type:["string","null"]}
+      },
+      required:["exception_type"],
+      additionalProperties:false
+    }
+  },
+  {
+    type: "function",
     name: "create_quote",
     description: "Request a canonical quote only when the active opportunity satisfies company requirements.",
     parameters: { type:"object", properties:{}, additionalProperties:false }
