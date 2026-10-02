@@ -141,7 +141,7 @@ export async function attachAtlasVoiceSideband(opts:SidebandOptions){
             type:"session.thinking.append",
             event_id:`atlas_superseded_${delegationId}`,
             delegation_id:delegationId,
-            content:"The caller continued or corrected the request while backend work was running. Do not announce a stale result. Wait for the next delegation."
+            content:"The caller continued or corrected the request while backend work was running. Do not announce the stale result. Reassess the latest completed customer meaning and create a new client delegation if backend work is still required."
           }));
           return;
         }
