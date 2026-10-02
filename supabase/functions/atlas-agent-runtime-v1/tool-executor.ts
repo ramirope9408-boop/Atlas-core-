@@ -275,6 +275,17 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       return data;
     }
 
+    case "request_cancellation": {
+      const {data,error}=await client.rpc("atlas_request_commercial_cancellation_v1",{
+        p_empresa_id:empresa_id,
+        p_conversation_id:conversation_id,
+        p_source_message_id:source_message_id,
+        p_customer_reason:args?.customer_reason==null?null:String(args.customer_reason)
+      });
+      if(error) throw new Error("COMMERCIAL_CANCELLATION_REQUEST_FAILED");
+      return data;
+    }
+
     case "create_quote": {
       const {data:w,error}=await client.rpc("atlas_get_active_conversation_work_state_v1",{p_empresa_id:empresa_id,p_conversation_id:conversation_id});
       if(error) throw new Error("WORK_STATE_READ_FAILED");
