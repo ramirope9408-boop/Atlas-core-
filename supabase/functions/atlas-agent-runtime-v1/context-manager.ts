@@ -2,7 +2,7 @@ export type AgentContextInput={empresa_id:string;conversation_id:string;source_m
 
 export async function loadCanonicalSourceMessage(client:any,input:AgentContextInput){
  const {data,error}=await client.from("atlas_conversation_messages")
-  .select("id,direction,actor_type,message_type,text_content,normalized_text,transcription_text,raw_payload,created_at")
+  .select("id,direction,actor_type,message_type,text_content,normalized_text,transcription_status,transcription_text,transcription_model,transcription_metadata,media_id,media_mime_type,media_url,media_duration_seconds,raw_payload,created_at")
   .eq("id",input.source_message_id)
   .eq("empresa_id",input.empresa_id)
   .eq("conversation_id",input.conversation_id)
@@ -15,7 +15,16 @@ export async function loadCanonicalSourceMessage(client:any,input:AgentContextIn
   id:data.id,
   message_type:data.message_type,
   text,
+  transcription_status:data.transcription_status??null,
   transcription_text:data.transcription_text??null,
+  transcription_model:data.transcription_model??null,
+  transcription_metadata:data.transcription_metadata??null,
+  media:{
+   id:data.media_id??null,
+   mime_type:data.media_mime_type??null,
+   url:data.media_url??null,
+   duration_seconds:data.media_duration_seconds??null
+  },
   has_text:Boolean(text),
   raw_payload:data.raw_payload??null,
   created_at:data.created_at
