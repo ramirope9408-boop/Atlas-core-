@@ -85,7 +85,7 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       const stateId=w?.state_id, stateVersion=Number(w?.state_version??0);
       if(!stateId) throw new Error("ACTIVE_OPPORTUNITY_REQUIRED");
       const evidence=await sourceEvidence(client,empresa_id,conversation_id,source_message_id);
-      const decision={requested_action:"CREATE",action_evidence:evidence,confidence:1,work_intent:"QUOTE_REQUEST"};
+      const decision={requested_action:"CREATE",action_evidence:evidence,confidence:.99,work_intent:"QUOTE_REQUEST"};
       const {data,error:execError}=await client.rpc("atlas_commercial_execute_turn",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,p_expected_state_id:stateId,p_expected_version:stateVersion,p_decision:decision});
       if(execError) throw new Error("CREATE_QUOTE_FAILED");
       return data;
@@ -105,7 +105,7 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       if(!w?.state_id) throw new Error("ACTIVE_OPPORTUNITY_REQUIRED");
       const requested_action=action==="ACCEPT"?"ACCEPT":"PAYMENT";
       const evidence=await sourceEvidence(client,empresa_id,conversation_id,source_message_id);
-      const decision={requested_action,action_evidence:evidence,confidence:1,work_intent:requested_action};
+      const decision={requested_action,action_evidence:evidence,confidence:.99,work_intent:requested_action};
       const {data,error:execError}=await client.rpc("atlas_commercial_execute_turn",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,p_expected_state_id:w.state_id,p_expected_version:Number(w.state_version??0),p_decision:decision});
       if(execError) throw new Error("QUOTE_ACTION_FAILED");
       return data;
