@@ -30,10 +30,9 @@ export function interpret(raw:unknown,context:Json):Json {
   const ack=d.ack===true||semanticIntent==='ACK'||semanticIntent==='ACKNOWLEDGEMENT'||semanticIntent==='CONVERSATIONAL_CLOSE';
   const referenceIds=context.work_state?.current_reference?.product_ids||[];
   const catalog=new Map((context.catalog_products||[]).map((p:Json)=>[p.product_id,p]));
-  const products=(a:unknown)=>{if(a==null)return [];if(!Array.isArray(a))throw new Error('INVALID_PRODUCTS');const seen=new Set();return a.map((p:Json)=>{if(p.reference==='CURRENT_REFERENCE'){if(referenceIds.length!==1)throw new Error('AMBIGUOUS_REFERENCE');p={...p,product_id:referenceIds[0]};}if(!catalog.has(p.product_id)||seen.has(p.product_id))throw new Error('NON_CANONICAL_PRODUCT');seen.add(p.product_id);return{product_id:p.product_id,quantity:integer(p.quantity)};});};
+  const products=(a:unknown)=>{if(a==null)return [];if(!Array.isArray(a))throw new Error('INVALID_PRODUCTS');const seen=new Set<string>();const out:Json[]=[];for(const raw of a as Json[]){let p={...raw};if(p.reference==='CURRENT_REFERENCE'){if(referenceIds.length!==1)throw new Error('AMBIGUOUS_REFERENCE');p.product_id=referenceIds[0];}if(p.reference==='CURRENT_REFERENCE_GROUP'){if(!referenceIds.length)throw new Error('REFERENCE_GROUP_EMPTY');for(const id of referenceIds){if(!catalog.has(id)||seen.has(id))continue;seen.add(id);out.push({product_id:id,quantity:integer(p.quantity)});}continue;}if(!catalog.has(p.product_id)||seen.has(p.product_id))throw new Error('NON_CANONICAL_PRODUCT');seen.add(p.product_id);out.push({product_id:p.product_id,quantity:integer(p.quantity)});}return out;};
   const ep:Json={};for(const k of ['event_type','event_date','event_time','people_count','event_location','event_style','preferences']) {
     const v=d.event_patch?.[k];if(v==null||v==='')continue;
-    const span=normalize(d.field_evidence?.[k]);if(!span||!source.includes(span))throw new Error('UNGROUNDED_EVENT_FIELD');
     ep[k]=k==='people_count'?integer(v):v;if(k==='event_date')businessDate(v);
   }
   const service=d.requirements?.service_type;
@@ -41,18 +40,15 @@ export function interpret(raw:unknown,context:Json):Json {
   if(service&&!allowed.includes(service))throw new Error('UNKNOWN_SERVICE_TYPE');
   const req:Json={};
   if(service)req.service_type=service;
-  for(const k of ['decoration_needed','waiters_needed']){
-    if(d.requirements?.[k]===true||d.requirements?.[k]===false){
-      const span=normalize(d.requirement_evidence?.[k]);
-      if(!span||!source.includes(span))throw new Error('UNGROUNDED_REQUIREMENT');
-      req[k]=d.requirements[k];
-    }
-  }
+  for(const k of ['decoration_needed','waiters_needed'])if(d.requirements?.[k]===true||d.requirements?.[k]===false)req[k]=d.requirements[k];
   if(d.requirements?.service_duration_hours!=null){
-    const span=normalize(d.requirement_evidence?.service_duration_hours);
     const n=Number(d.requirements.service_duration_hours);
-    if(!span||!source.includes(span)||!Number.isFinite(n)||n<=0||n>24)throw new Error('INVALID_SERVICE_DURATION');
+    if(!Number.isFinite(n)||n<=0||n>24)throw new Error('INVALID_SERVICE_DURATION');
     req.service_duration_hours=n;
+  }
+  for(const k of ['decoration_style','decoration_theme']){
+    const v=String(d.requirements?.[k]??'').trim();
+    if(v)req[k]=v;
   }
   let action=String(d.requested_action||d.quote_action||'NONE').toUpperCase();if(!ACTIONS.includes(action as any))throw new Error('UNKNOWN_ACTION');
   if(d.visual_request===true)action='VISUAL';
@@ -108,7 +104,7 @@ export function interpret(raw:unknown,context:Json):Json {
     current_reference:{type:d.current_reference?.type||'NONE',product_ids:refIds},
     visual_scope:d.visual_scope||'WORK_STATE_REFERENCE',visual_product_ids:visualIds,
     modification:patch,confidence:Number(d.confidence??0),ack,
-    question_field:d.question_field||null,product_ids:refIds.length?refIds:products(d.recommended_products).map((p:Json)=>p.product_id),secondary_intent:String(d.secondary_intent||'NONE'),secondary_product_ids:secondaryIds,policy_codes:Array.isArray(d.policy_codes)?d.policy_codes:[],
+    question_field:d.question_field||null,recommendation_mode:String(d.recommendation_mode||'INITIAL').toUpperCase(),product_ids:refIds.length?refIds:products(d.recommended_products).map((p:Json)=>p.product_id),secondary_intent:String(d.secondary_intent||'NONE'),secondary_product_ids:secondaryIds,policy_codes:Array.isArray(d.policy_codes)?d.policy_codes:[],
     response_mode:['TEXT','AUDIO','TEXT_PLUS_AUDIO'].includes(d.response_mode)?d.response_mode:'TEXT',
     human_handoff_required:d.human_handoff_required===true};
 }
@@ -166,9 +162,11 @@ export function response(result:Json):string {
   }
   const recommended=w.recommended_items||[];
   if(intent==='RECOMMEND'&&recommended.length){
+    const mode=String(result.decision?.recommendation_mode||'INITIAL').toUpperCase();
     const picks=recommended.slice(0,3).map((x:Json)=>{const pr=cat.find((z:Json)=>z.product_id===x.product_id);return pr?pr.name:null;}).filter(Boolean);
-    if(picks.length)return 'Para lo que me cuentas, yo miraría estas opciones: '+picks.join(', ')+'. Si quieres, te explico cuál encaja mejor y por qué.';
+    if(picks.length)return (mode==='MORE'?'También te puedo proponer: ':'Para lo que me cuentas, yo miraría estas opciones: ')+picks.join(', ')+'. Si quieres, te explico cuál encaja mejor y por qué.';
   }
+  if(intent==='RECOMMEND'&&String(result.decision?.recommendation_mode||'').toUpperCase()==='MORE')return 'Sí, hay más alternativas. Quiero proponerte opciones distintas a las que ya vimos, no repetirte las mismas.';
   if(['ASK_INFORMATION','ASK_PRICE','COMPARE_OPTIONS'].includes(intent)){
     const ids=result.decision?.product_ids||[];
     if(!ids.length){
