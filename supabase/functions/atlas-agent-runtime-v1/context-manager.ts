@@ -1,5 +1,27 @@
 export type AgentContextInput={empresa_id:string;conversation_id:string;source_message_id:string};
 
+export async function loadCanonicalSourceMessage(client:any,input:AgentContextInput){
+ const {data,error}=await client.from("atlas_conversation_messages")
+  .select("id,direction,actor_type,message_type,text_content,normalized_text,transcription_text,raw_payload,created_at")
+  .eq("id",input.source_message_id)
+  .eq("empresa_id",input.empresa_id)
+  .eq("conversation_id",input.conversation_id)
+  .maybeSingle();
+ if(error||!data) throw new Error("SOURCE_MESSAGE_NOT_AVAILABLE");
+ if(data.direction!=="INBOUND"||data.actor_type!=="CUSTOMER") throw new Error("SOURCE_MESSAGE_NOT_CUSTOMER_INBOUND");
+
+ const text=String(data.normalized_text??data.text_content??data.transcription_text??"").trim();
+ return {
+  id:data.id,
+  message_type:data.message_type,
+  text,
+  transcription_text:data.transcription_text??null,
+  has_text:Boolean(text),
+  raw_payload:data.raw_payload??null,
+  created_at:data.created_at
+ };
+}
+
 export async function loadCompanyProfile(client:any,empresa_id:string){
  const {data:installation}=await client.from("atlas_company_agent_installations")
   .select("id,agent_code,installed_version,metadata").eq("empresa_id",empresa_id).eq("installation_status","ACTIVE")
@@ -20,5 +42,6 @@ export async function loadAgentContext(client:any,input:AgentContextInput){
  const {data:commercial,error}=await client.rpc("atlas_commercial_context",{p_empresa_id:input.empresa_id,p_conversation_id:input.conversation_id,p_source_message_id:input.source_message_id});
  if(error)throw new Error("COMMERCIAL_CONTEXT_FAILED");
  const {data:workState}=await client.rpc("atlas_get_active_conversation_work_state_v1",{p_empresa_id:input.empresa_id,p_conversation_id:input.conversation_id});
- return {authority:{commercial,work_state:workState??null},memory_policy:{crm_is_relationship_context_only:true,prior_opportunities_auto_merge:false,event_specific_inheritance:false}};
+ const source_message=await loadCanonicalSourceMessage(client,input);
+ return {authority:{commercial,work_state:workState??null,source_message},memory_policy:{crm_is_relationship_context_only:true,prior_opportunities_auto_merge:false,event_specific_inheritance:false}};
 }
