@@ -32,7 +32,7 @@ export const ATLAS_AGENT_TOOLS = [
   {
     type: "function",
     name: "update_event",
-    description: "Patch explicit event facts supplied or confirmed by the customer.",
+    description: "Patch explicit mutable event facts supplied or confirmed by the customer. If the customer explicitly retracts certainty about a mutable Work State fact and gives no replacement, set that specific field to null so ATLAS no longer treats it as known. Never use this to clear formal quote, acceptance, payment, or reservation truth.",
     parameters: { type:"object", properties:{ patch:{ type:"object", properties:{ event_patch:{type:"object"}, requirements:{type:"object"} }, additionalProperties:false } }, required:["patch"], additionalProperties:false }
   },
   {
