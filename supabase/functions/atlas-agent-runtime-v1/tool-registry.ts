@@ -15,7 +15,7 @@ export const ATLAS_AGENT_TOOLS = [
     type: "function",
     name: "update_event",
     description: "Patch explicit event facts supplied or confirmed by the customer.",
-    parameters: { type:"object", properties:{ patch:{type:"object"} }, required:["patch"], additionalProperties:false }
+    parameters: { type:"object", properties:{ patch:{ type:"object", properties:{ event_patch:{type:"object"}, requirements:{type:"object"} }, additionalProperties:false } }, required:["patch"], additionalProperties:false }
   },
   {
     type: "function",
