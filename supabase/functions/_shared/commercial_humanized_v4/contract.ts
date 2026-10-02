@@ -35,13 +35,8 @@ export function interpret(raw:unknown,context:Json):Json {
     const span=normalize(d.field_evidence?.[k]);if(!span||!source.includes(span))throw new Error('UNGROUNDED_EVENT_FIELD');
     ep[k]=k==='people_count'?integer(v):v;if(k==='event_date')businessDate(v);
   }
-  let service=d.requirements?.service_type;
+  const service=d.requirements?.service_type;
   const allowed=(context.company_policy?.commercial_rules||[]).filter((r:Json)=>r.rule_type==='MINIMUM_SERVICE_VALUE').map((r:Json)=>r.service_type);
-  if(!service){
-    if(/(servicio completo|evento completo|servicio integral|evento integral)/.test(source)&&allowed.includes('FULL_EVENT'))service='FULL_EVENT';
-    else if(/(mesa de finger|mesa finger|finger table)/.test(source)&&allowed.includes('FINGER_TABLE'))service='FINGER_TABLE';
-    else if(/(cajas individuales|caja individual|finger box|cajas de pasabocas)/.test(source)&&allowed.includes('FINGER_BOX'))service='FINGER_BOX';
-  }
   if(service&&!allowed.includes(service))throw new Error('UNKNOWN_SERVICE_TYPE');
   const req:Json={};
   if(service)req.service_type=service;
@@ -74,11 +69,18 @@ export function interpret(raw:unknown,context:Json):Json {
     if(!['ADD','REMOVE','SET'].includes(op.op))throw new Error('INVALID_PRODUCT_OPERATION');
     patch.products.push({op:op.op,product_id:id,...(op.op==='REMOVE'?{}:{quantity:integer(op.quantity)})});
   }
-  if(patch.products?.length&&!/(agrega|agregar|anexa|anexar|incluye|incluir|quita|quitar|elimina|eliminar|reemplaza|reemplazar|cambia|cambiar|pon|sumale|súmale|menos|mas|más)/.test(source))delete patch.products;
   if(!patch.products?.length)delete patch.products;
-  if(Object.keys(patch).length)action='MODIFY'; // a mixed accept+change never accepts
+  const hasFormalQuote=Boolean(context.work_state?.active_quote_builder_id);
+  if(Object.keys(patch).length){
+    if(hasFormalQuote) action='MODIFY';
+    else {
+      for(const k of ['people_count','event_date','event_location']) if(patch[k]!=null && ep[k]==null) ep[k]=patch[k];
+      action='NONE';
+    }
+  }
+  if(action==='MODIFY'&&!hasFormalQuote)action='NONE';
+  if(action==='ACCEPT'&&['ACCEPTED','PAYMENT_PENDING','PAID'].includes(String(context.work_state?.commercial_stage||'')))action='NONE';
   if(ack)action='NONE';
-  if(action==='MODIFY'&&!Object.keys(patch).length&&/^(modificar|modifica|actualizar|actualiza).*(cotiza|cotizacion|cotización)[.! ]*$/.test(source))action='NONE';
   const start=d.start_new_event===true;
   if(start&&!hasEvidence)throw new Error('NEW_EVENT_EVIDENCE_REQUIRED');
   const visualIds=d.visual_product_ids||[];if(!Array.isArray(visualIds)||visualIds.some((id:string)=>!catalog.has(id)))throw new Error('NON_CANONICAL_VISUAL');
@@ -86,7 +88,19 @@ export function interpret(raw:unknown,context:Json):Json {
   const refIds=(d.current_reference?.product_ids||[]);if(!Array.isArray(refIds)||refIds.some((id:string)=>!catalog.has(id)))throw new Error('NON_CANONICAL_REFERENCE');
   const secondaryIds=d.secondary_product_ids||[];
   if(!Array.isArray(secondaryIds)||secondaryIds.some((id:string)=>!catalog.has(id)))throw new Error('NON_CANONICAL_SECONDARY_PRODUCT');
-  return {requested_action:action,action_evidence:hasEvidence?String(d.action_evidence):null,
+  const continuity:Json={};
+  if(d.continuity?.mode){
+    const x=d.continuity;
+    if(!['PAUSE','RESUME','CLOSE','PROOF_SUBMITTED'].includes(x.mode)||!['INFORMATION','QUOTE_RESPONSE','PAYMENT','PAYMENT_PROOF'].includes(x.reason))throw new Error('INVALID_CONTINUITY');
+    const span=String(x.evidence||'');
+    if(!span||!String(context.current_message||'').includes(span))throw new Error('CONTINUITY_NOT_SOURCE_GROUNDED');
+    const time=String(x.expected_time_text||'');
+    if(time&&!String(context.current_message||'').includes(time))throw new Error('COMMITMENT_NOT_SOURCE_GROUNDED');
+    if(x.mode==='PROOF_SUBMITTED'&&(!['IMAGE','DOCUMENT'].includes(context.current_media?.message_type)||!context.current_media?.media_id))throw new Error('PAYMENT_PROOF_NOT_AVAILABLE');
+    Object.assign(continuity,{mode:x.mode,reason:x.reason,evidence:span,expected_time_text:time||null});
+    if(['PAUSE','CLOSE','PROOF_SUBMITTED'].includes(x.mode)&&['NONE','ACCEPT','PAYMENT'].includes(action))action='NONE';
+  }
+  return {continuity,requested_action:action,action_evidence:hasEvidence?String(d.action_evidence):null,
     work_intent:ack?'ACK':String(d.work_intent||'GENERAL'),start_new_event:start,
     event_patch:ep,requirements:req,requirement_evidence:d.requirement_evidence||{},
     recommended_products:products(d.recommended_products),selected_products:products(d.selected_products),
@@ -102,6 +116,7 @@ export function interpret(raw:unknown,context:Json):Json {
 // No raw AI prose crosses this boundary. All facts are rendered from this turn's DB snapshot.
 export function response(result:Json):string {
   const c=result.context||{},w=result.work_state||{},q=result.quote,p=result.payment;
+  const relationship=result.relationship||c.relationship||{},continuity=relationship.continuity||{};
   const intent=String(result.decision?.work_intent||'GENERAL');
   const current=normalize(c.current_message||'');
   const cat=c.catalog_products||[];
@@ -109,7 +124,17 @@ export function response(result:Json):string {
   const friendlyName=firstName&&firstName.length<22?firstName:'';
 
   if(result.code==='HUMAN_CONTROL')return '';
-  if(result.code==='ACK')return 'Con gusto 😊. Aquí estoy pendiente.';
+  if(['DISCOVERY','ACK','GREETING','PENDING_DATA'].includes(result.code)&&['PAUSE','CLOSE','PROOF_SUBMITTED'].includes(result.decision?.continuity?.mode)){
+    if(continuity.proof_status==='UNVERIFIED')return 'Recibí el comprobante. Su verificación queda pendiente con el equipo; el pago todavía no está confirmado.';
+    if(w.commercial_stage==='PAYMENT_PENDING')return 'Perfecto 😊. Quedamos pendientes del pago. Cuando lo realices, me envías el comprobante y seguimos.';
+    if(w.commercial_stage==='QUOTED')return 'Perfecto 😊. Conservamos la cotización del evento y retomamos cuando puedas.';
+    return 'Perfecto 😊. Dejamos esto pendiente y retomamos cuando puedas.';
+  }
+  if(result.code==='ACK'){
+    if(w.commercial_stage==='PAYMENT_PENDING')return 'Perfecto 😊. Quedamos pendientes del pago. Cuando lo realices, me envías el comprobante y seguimos.';
+    if(w.commercial_stage==='ACCEPTED')return 'Perfecto 😊. La cotización ya quedó aceptada. Seguimos desde aquí cuando quieras.';
+    return 'Con gusto 😊. Aquí estoy pendiente.';
+  }
   if(result.code==='GREETING'){
     if(/como estas|como vas|todo bien|y tu|y tú/.test(current))return 'Muy bien 😊, gracias por preguntar. Cuéntame, ¿qué tienes en mente?';
     return friendlyName?`¡Hola, ${friendlyName}! 😊 Qué gusto leerte. Cuéntame, ¿en qué te ayudo?`:'¡Hola! 😊 Qué gusto leerte. Cuéntame, ¿en qué te ayudo?';
