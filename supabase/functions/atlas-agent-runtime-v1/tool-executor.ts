@@ -223,6 +223,23 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       return {work_state:w??null,acceptance:acceptance??null,payment_evidences:asArray(evidences),reservation:reservation??null};
     }
 
+    case "register_payment_evidence": {
+      const claimedAmount=args?.claimed_amount==null?null:Number(args.claimed_amount);
+      const providerReference=args?.provider_reference==null?null:String(args.provider_reference);
+      const note=args?.note==null?null:String(args.note);
+
+      const {data,error}=await client.rpc("atlas_register_payment_evidence_v1",{
+        p_empresa_id:empresa_id,
+        p_conversation_id:conversation_id,
+        p_source_message_id:source_message_id,
+        p_claimed_amount:Number.isFinite(claimedAmount)?claimedAmount:null,
+        p_provider_reference:providerReference,
+        p_metadata:{note}
+      });
+      if(error) throw new Error("PAYMENT_EVIDENCE_REGISTER_FAILED");
+      return data;
+    }
+
     case "create_quote": {
       const {data:w,error}=await client.rpc("atlas_get_active_conversation_work_state_v1",{p_empresa_id:empresa_id,p_conversation_id:conversation_id});
       if(error) throw new Error("WORK_STATE_READ_FAILED");
