@@ -189,6 +189,40 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       return {code:"VISUALS_READY",items};
     }
 
+    case "get_transaction_state": {
+      const {data:w,error:wError}=await client.rpc("atlas_get_active_conversation_work_state_v1",{
+        p_empresa_id:empresa_id,p_conversation_id:conversation_id
+      });
+      if(wError) throw new Error("WORK_STATE_READ_FAILED");
+
+      const {data:acceptance}=await client.from("atlas_quote_acceptances")
+        .select("id,quote_builder_id,quote_version,status,accepted_at,superseded_at")
+        .eq("empresa_id",empresa_id)
+        .eq("conversation_id",conversation_id)
+        .order("accepted_at",{ascending:false})
+        .limit(1)
+        .maybeSingle();
+
+      const {data:evidences,error:eError}=await client.from("atlas_payment_evidences")
+        .select("id,quote_builder_id,expected_amount,claimed_amount,currency,status,provider_reference,received_at,reviewed_at,review_reason")
+        .eq("empresa_id",empresa_id)
+        .eq("conversation_id",conversation_id)
+        .order("created_at",{ascending:false})
+        .limit(10);
+      if(eError) throw new Error("PAYMENT_EVIDENCE_READ_FAILED");
+
+      const {data:reservation,error:rError}=await client.from("atlas_commercial_reservations")
+        .select("id,quote_builder_id,payment_evidence_id,status,event_date,event_location,confirmed_at,cancelled_at")
+        .eq("empresa_id",empresa_id)
+        .eq("conversation_id",conversation_id)
+        .order("created_at",{ascending:false})
+        .limit(1)
+        .maybeSingle();
+      if(rError) throw new Error("RESERVATION_READ_FAILED");
+
+      return {work_state:w??null,acceptance:acceptance??null,payment_evidences:asArray(evidences),reservation:reservation??null};
+    }
+
     case "create_quote": {
       const {data:w,error}=await client.rpc("atlas_get_active_conversation_work_state_v1",{p_empresa_id:empresa_id,p_conversation_id:conversation_id});
       if(error) throw new Error("WORK_STATE_READ_FAILED");
