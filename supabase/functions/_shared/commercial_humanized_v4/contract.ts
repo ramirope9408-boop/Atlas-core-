@@ -26,7 +26,8 @@ export function assertQuote(q:Json,tenant:string,conversation:string):void {
 export function interpret(raw:unknown,context:Json):Json {
   if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('MALFORMED_INTERPRETATION');
   const d=raw as Json; const source=normalize(context.current_message);const evidence=normalize(d.action_evidence);
-  const ack=/^(dale|listo|ok|okay|bueno|perfecto|gracias|muchas gracias)[.! ]*$/.test(source);
+  const semanticIntent=String(d.work_intent||'GENERAL').toUpperCase();
+  const ack=d.ack===true||semanticIntent==='ACK'||semanticIntent==='ACKNOWLEDGEMENT'||semanticIntent==='CONVERSATIONAL_CLOSE';
   const referenceIds=context.work_state?.current_reference?.product_ids||[];
   const catalog=new Map((context.catalog_products||[]).map((p:Json)=>[p.product_id,p]));
   const products=(a:unknown)=>{if(a==null)return [];if(!Array.isArray(a))throw new Error('INVALID_PRODUCTS');const seen=new Set();return a.map((p:Json)=>{if(p.reference==='CURRENT_REFERENCE'){if(referenceIds.length!==1)throw new Error('AMBIGUOUS_REFERENCE');p={...p,product_id:referenceIds[0]};}if(!catalog.has(p.product_id)||seen.has(p.product_id))throw new Error('NON_CANONICAL_PRODUCT');seen.add(p.product_id);return{product_id:p.product_id,quantity:integer(p.quantity)};});};
@@ -84,7 +85,6 @@ export function interpret(raw:unknown,context:Json):Json {
   const start=d.start_new_event===true;
   if(start&&!hasEvidence)throw new Error('NEW_EVENT_EVIDENCE_REQUIRED');
   const visualIds=d.visual_product_ids||[];if(!Array.isArray(visualIds)||visualIds.some((id:string)=>!catalog.has(id)))throw new Error('NON_CANONICAL_VISUAL');
-  if(action==='NONE'&&visualIds.length&&hasEvidence&&/(imagen|imagenes|foto|fotos|ver|muestr|mostrar|envia|enviar|manda|mandar)/i.test(normalize(d.action_evidence)))action='VISUAL';
   const refIds=(d.current_reference?.product_ids||[]);if(!Array.isArray(refIds)||refIds.some((id:string)=>!catalog.has(id)))throw new Error('NON_CANONICAL_REFERENCE');
   const secondaryIds=d.secondary_product_ids||[];
   if(!Array.isArray(secondaryIds)||secondaryIds.some((id:string)=>!catalog.has(id)))throw new Error('NON_CANONICAL_SECONDARY_PRODUCT');
@@ -136,11 +136,8 @@ export function response(result:Json):string {
     return 'Con gusto 😊. Aquí estoy pendiente.';
   }
   if(result.code==='GREETING'){
-    if(/como estas|como vas|todo bien|y tu|y tú/.test(current))return 'Muy bien 😊, gracias por preguntar. Cuéntame, ¿qué tienes en mente?';
     return friendlyName?`¡Hola, ${friendlyName}! 😊 Qué gusto leerte. Cuéntame, ¿en qué te ayudo?`:'¡Hola! 😊 Qué gusto leerte. Cuéntame, ¿en qué te ayudo?';
   }
-  if(/no tan directa|muy directa|mas suave|más suave|con calma|tranqui|tranquila|despacio|jaja|jajaja/.test(current))return 'Jajaja, tienes razón 😅. Me fui de una. Cuéntame con calma qué estás organizando y te voy ayudando paso a paso.';
-  if(q&&!w.requirements?.service_type&&/^(seguro|claro|si|sí|dale|cuentame|cuéntame|seguro cuentame|seguro cuéntame)[.! ]*$/.test(current))return 'Claro 😊. Lo que necesito definir es el tipo de servicio: ¿quieres cajas individuales, una mesa de finger food o un servicio completo para el evento?';
   if(result.code==='QUOTE_REJECTED')return 'Entendido. Dejamos esa cotización hasta ahí. Si quieres, armamos otra propuesta con una idea diferente.';
   if(result.code==='HANDOFF')return 'Claro. Voy a dejar esto con una persona del equipo para que te ayude directamente.';
   if(result.code==='POLICY_BLOCK'){
@@ -175,7 +172,6 @@ export function response(result:Json):string {
   if(['ASK_INFORMATION','ASK_PRICE','COMPARE_OPTIONS'].includes(intent)){
     const ids=result.decision?.product_ids||[];
     if(!ids.length){
-      if(/que necesitas aclarar|qué necesitas aclarar|que falta|qué falta/.test(current))return q?'Lo que quiero confirmar es si seguimos trabajando sobre la cotización que ya tienes o si esto es para un evento nuevo. Así no mezclo información de dos solicitudes.':'Dime qué parte quieres que aclaremos y te respondo sobre eso.';
       if(intent==='ASK_PRICE')return 'Claro. Dime cuál producto quieres revisar y te doy el precio exacto.';
       if(intent==='COMPARE_OPTIONS')return 'Claro. Dime cuáles opciones quieres comparar y te marco las diferencias más útiles.';
       return 'Claro. Dime de qué producto o parte del servicio quieres saber más y te lo explico.';
