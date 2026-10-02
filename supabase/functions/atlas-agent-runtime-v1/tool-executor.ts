@@ -4,6 +4,105 @@ type ToolEnv={client:any;empresa_id:string;conversation_id:string;source_message
 
 const asArray=(v:any)=>Array.isArray(v)?v:[];
 const ids=(v:any)=>asArray(v).map(String).filter(Boolean);
+
+async function requireStableVoiceConfirmation(
+ client:any,
+ empresa_id:string,
+ conversation_id:string,
+ source_message_id:string,
+ action_key:string,
+ action_context:any={}
+){
+ const {data:source,error:sourceError}=await client.from("atlas_conversation_messages")
+  .select("channel,message_type,created_at")
+  .eq("empresa_id",empresa_id)
+  .eq("conversation_id",conversation_id)
+  .eq("id",source_message_id)
+  .maybeSingle();
+ if(sourceError||!source) throw new Error("SOURCE_MESSAGE_READ_FAILED");
+ if(source.channel!=="VOICE_CALL") return {required:false,confirmed:true};
+
+ await client.from("atlas_voice_action_confirmations")
+  .update({status:"EXPIRED",updated_at:new Date().toISOString()})
+  .eq("empresa_id",empresa_id)
+  .eq("conversation_id",conversation_id)
+  .eq("status","PENDING")
+  .lt("expires_at",new Date().toISOString());
+
+ const {data:pending,error:pendingError}=await client.from("atlas_voice_action_confirmations")
+  .select("id,action_key,action_context,originating_message_id,created_at,expires_at")
+  .eq("empresa_id",empresa_id)
+  .eq("conversation_id",conversation_id)
+  .eq("status","PENDING")
+  .eq("action_key",action_key)
+  .gt("expires_at",new Date().toISOString())
+  .order("created_at",{ascending:false})
+  .limit(1)
+  .maybeSingle();
+ if(pendingError) throw new Error("VOICE_CONFIRMATION_READ_FAILED");
+
+ if(!pending){
+  const {data:created,error:createError}=await client.from("atlas_voice_action_confirmations")
+   .insert({
+    empresa_id,
+    conversation_id,
+    action_key,
+    action_context:action_context??{},
+    originating_message_id:source_message_id,
+    status:"PENDING"
+   })
+   .select("id")
+   .single();
+  if(createError) throw new Error("VOICE_CONFIRMATION_CREATE_FAILED");
+  return {
+   required:true,
+   confirmed:false,
+   code:"VOICE_CONFIRMATION_REQUIRED",
+   confirmation_id:created.id,
+   action_key,
+   next_action:"ASK_EXPLICIT_CONFIRMATION_IN_NEXT_FINAL_VOICE_TURN"
+  };
+ }
+
+ if(String(pending.originating_message_id)===String(source_message_id)){
+  return {
+   required:true,
+   confirmed:false,
+   code:"VOICE_CONFIRMATION_REQUIRED",
+   confirmation_id:pending.id,
+   action_key,
+   next_action:"ASK_EXPLICIT_CONFIRMATION_IN_NEXT_FINAL_VOICE_TURN"
+  };
+ }
+
+ const sameContext=JSON.stringify(pending.action_context??{})===JSON.stringify(action_context??{});
+ if(!sameContext){
+  await client.from("atlas_voice_action_confirmations")
+   .update({status:"CANCELLED",updated_at:new Date().toISOString()})
+   .eq("id",pending.id)
+   .eq("empresa_id",empresa_id);
+  return {
+   required:true,
+   confirmed:false,
+   code:"VOICE_CONFIRMATION_CONTEXT_CHANGED",
+   action_key,
+   next_action:"ASK_EXPLICIT_CONFIRMATION_AGAIN"
+  };
+ }
+
+ const {error:confirmError}=await client.from("atlas_voice_action_confirmations")
+  .update({
+   status:"CONFIRMED",
+   confirmed_by_message_id:source_message_id,
+   updated_at:new Date().toISOString()
+  })
+  .eq("id",pending.id)
+  .eq("empresa_id",empresa_id);
+ if(confirmError) throw new Error("VOICE_CONFIRMATION_UPDATE_FAILED");
+
+ return {required:true,confirmed:true,confirmation_id:pending.id,action_key};
+}
+
 async function sourceEvidence(client:any,empresa_id:string,conversation_id:string,source_message_id:string){
  const {data,error}=await client.from("atlas_conversation_messages").select("text_content,normalized_text").eq("empresa_id",empresa_id).eq("conversation_id",conversation_id).eq("id",source_message_id).maybeSingle();
  if(error) throw new Error("SOURCE_MESSAGE_READ_FAILED");
@@ -276,6 +375,13 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
     }
 
     case "request_cancellation": {
+      const guard=await requireStableVoiceConfirmation(
+        client,empresa_id,conversation_id,source_message_id,
+        "REQUEST_CANCELLATION",
+        {reason:args?.customer_reason==null?null:String(args.customer_reason)}
+      );
+      if(guard.required&&!guard.confirmed) return guard;
+
       const {data,error}=await client.rpc("atlas_request_commercial_cancellation_v1",{
         p_empresa_id:empresa_id,
         p_conversation_id:conversation_id,
@@ -378,6 +484,16 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       }
       if(!w?.state_id) throw new Error("ACTIVE_OPPORTUNITY_REQUIRED");
       const requested_action=action==="ACCEPT"?"ACCEPT":"PAYMENT";
+
+      if(action==="ACCEPT"){
+        const guard=await requireStableVoiceConfirmation(
+          client,empresa_id,conversation_id,source_message_id,
+          "ACCEPT_QUOTE",
+          {quote_builder_id:quoteId}
+        );
+        if(guard.required&&!guard.confirmed) return guard;
+      }
+
       const evidence=await sourceEvidence(client,empresa_id,conversation_id,source_message_id);
       const decision={requested_action,action_evidence:evidence,confidence:.99,work_intent:requested_action};
       const {data,error:execError}=await client.rpc("atlas_commercial_execute_turn",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,p_expected_state_id:w.state_id,p_expected_version:Number(w.state_version??0),p_decision:decision});
