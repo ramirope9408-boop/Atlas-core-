@@ -18,6 +18,12 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
     case "get_commercial_context":
       return await loadAgentContext(client,{empresa_id,conversation_id,source_message_id});
 
+    case "get_company_policy": {
+      const {data,error}=await client.rpc("atlas_get_company_commercial_policy_v1",{p_empresa_id:empresa_id});
+      if(error) throw new Error("COMPANY_POLICY_READ_FAILED");
+      return {topic:String(args?.topic??"").trim()||null,policy:data};
+    }
+
     case "open_opportunity": {
       const {data,error}=await client.rpc("atlas_apply_conversation_work_state_v4",{
         p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,
