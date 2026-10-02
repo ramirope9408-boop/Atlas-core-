@@ -116,6 +116,21 @@ export const ATLAS_AGENT_TOOLS = [
   },
   {
     type: "function",
+    name: "request_handoff",
+    description: "Request a human operator when the customer asks for a person or the situation requires authority/capability outside the agent. This creates a governed pending handoff only; it does not grant human control by itself.",
+    parameters: {
+      type:"object",
+      properties:{
+        reason_code:{type:"string"},
+        reason_detail:{type:["string","null"]},
+        priority:{type:"string",enum:["LOW","NORMAL","HIGH","URGENT"]}
+      },
+      required:["reason_code"],
+      additionalProperties:false
+    }
+  },
+  {
+    type: "function",
     name: "create_quote",
     description: "Request a canonical quote only when the active opportunity satisfies company requirements.",
     parameters: { type:"object", properties:{}, additionalProperties:false }
