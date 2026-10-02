@@ -12,9 +12,15 @@ export async function parseMeta(body:Json,resolve:(phone:string)=>Promise<string
     if(!phone)throw new Error('META_PHONE_REQUIRED');const tenant=await resolve(phone);
     for(const m of value.messages){
       if(!m.id||!m.from)throw new Error('META_MESSAGE_ID_REQUIRED');
-      const contact=(value.contacts||[]).find((c:Json)=>c.wa_id===m.from)||{};const media=m.audio||m.voice;
+      const contact=(value.contacts||[]).find((c:Json)=>c.wa_id===m.from)||{};
+      const audio=m.audio||m.voice;
+      const image=m.image;
+      const document=m.document;
+      const media=audio||image||document;
+      const messageType=audio?'AUDIO':image?'IMAGE':document?'DOCUMENT':String(m.type||'UNKNOWN').toUpperCase();
+      const textContent=m.text?.body||image?.caption||document?.caption||null;
       items.push({empresa_id:tenant,external_message_id:m.id,customer_phone:m.from,customer_name:contact.profile?.name||null,
-        message_type:media?'AUDIO':String(m.type||'UNKNOWN').toUpperCase(),text_content:m.text?.body||null,
+        message_type:messageType,text_content:textContent,
         media_id:media?.id||null,media_mime_type:media?.mime_type||null,whatsapp_phone_number_id:phone,
         whatsapp_display_phone_number:value.metadata?.display_phone_number||null,raw_payload:body});
     }
