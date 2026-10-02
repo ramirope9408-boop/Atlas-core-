@@ -1,6 +1,6 @@
 import { loadAgentContext } from "./context-manager.ts";
 
-type ToolEnv={client:any;empresa_id:string;conversation_id:string;source_message_id:string};
+type ToolEnv={client:any;empresa_id:string;conversation_id:string;source_message_id:string;apiKey:string};
 
 const asArray=(v:any)=>Array.isArray(v)?v:[];
 const ids=(v:any)=>asArray(v).map(String).filter(Boolean);
@@ -153,7 +153,7 @@ async function sourceEvidence(client:any,empresa_id:string,conversation_id:strin
 }
 
 export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
-  const {client,empresa_id,conversation_id,source_message_id}=env;
+  const {client,empresa_id,conversation_id,source_message_id,apiKey}=env;
   switch(name){
     case "get_commercial_context":
       return await loadAgentContext(client,{empresa_id,conversation_id,source_message_id});
@@ -243,15 +243,60 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
     case "search_catalog": {
       const q=String(args?.query??"").trim();
       if(!q) throw new Error("CATALOG_QUERY_REQUIRED");
-      let query=client.from("productos")
-        .select("id,nombre,descripcion_resumen,sku,moneda,precio_base,atributos_extra,keywords")
-        .eq("empresa_id",empresa_id).eq("activo",true).eq("estado","published").is("deleted_at",null)
-        .or(`nombre.ilike.%${q.replace(/[%_,]/g," ")}%,descripcion_resumen.ilike.%${q.replace(/[%_,]/g," ")}%`)
-        .limit(12);
-      const {data,error}=await query;
-      if(error) throw new Error("CATALOG_SEARCH_FAILED");
+
+      const embeddingRes=await fetch("https://api.openai.com/v1/embeddings",{
+        method:"POST",
+        headers:{
+          "Authorization":`Bearer ${apiKey}`,
+          "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+          model:"text-embedding-3-small",
+          input:q,
+          encoding_format:"float"
+        })
+      });
+      const embeddingBody=await embeddingRes.json();
+      if(!embeddingRes.ok){
+        throw new Error(`CATALOG_EMBEDDING_FAILED:${embeddingBody?.error?.message??embeddingRes.status}`);
+      }
+      const embedding=embeddingBody?.data?.[0]?.embedding;
+      if(!Array.isArray(embedding)||embedding.length!==1536){
+        throw new Error("CATALOG_EMBEDDING_DIMENSION_INVALID");
+      }
+
+      const {data,error}=await client.rpc("atlas_recommend_products",{
+        p_empresa_id:empresa_id,
+        p_query_text:q,
+        p_query_embedding:embedding,
+        p_match_count:12,
+        p_subcategoria:null,
+        p_precio_min:null,
+        p_precio_max:null
+      });
+      if(error) throw new Error("CATALOG_HYBRID_SEARCH_FAILED");
+
       const excluded=new Set(ids(args?.exclude_product_ids));
-      return {items:asArray(data).filter((x:any)=>!excluded.has(String(x.id))).slice(0,8)};
+      return {
+        code:"CATALOG_HYBRID_RESULTS",
+        retrieval:"ATLAS_HYBRID_V1",
+        query:q,
+        items:asArray(data)
+          .filter((x:any)=>!excluded.has(String(x.producto_id)))
+          .slice(0,8)
+          .map((x:any)=>({
+            id:x.producto_id,
+            codigo_externo:x.codigo_externo,
+            nombre:x.nombre,
+            descripcion_resumen:x.descripcion_resumen,
+            precio_base:x.precio_base,
+            moneda:x.moneda,
+            match_type:x.match_type,
+            vector_score:x.vector_score,
+            hybrid_score:x.hybrid_score,
+            recommendation_reason:x.recommendation_reason
+          }))
+      };
     }
 
     case "select_products": {
