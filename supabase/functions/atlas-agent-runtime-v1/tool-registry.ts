@@ -38,7 +38,7 @@ export const ATLAS_AGENT_TOOLS = [
   {
     type: "function",
     name: "search_catalog",
-    description: "Find canonical company products. Send concise catalog search terms, usually 1-3 product or category words, not a long natural-language sentence. For compound preferences, make multiple searches when useful. Use this instead of inventing recommendations.",
+    description: "Find canonical company products through ATLAS hybrid retrieval (lexical + fuzzy + structured context + vector similarity). Send the shortest query that preserves the customer's useful intent. A product/category term is enough for exact searches; a compact natural phrase such as 'opciones ligeras para bautizo' is appropriate when context, preference, budget or subcategory matters. Use multiple searches only when the customer expresses genuinely different product intents. Never invent recommendations.",
     parameters: { type:"object", properties:{ query:{type:"string"}, exclude_product_ids:{type:"array",items:{type:"string"}} }, required:["query"], additionalProperties:false }
   },
   {
