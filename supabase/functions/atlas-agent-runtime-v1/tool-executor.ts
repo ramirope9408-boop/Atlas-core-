@@ -4,6 +4,13 @@ type ToolEnv={client:any;empresa_id:string;conversation_id:string;source_message
 
 const asArray=(v:any)=>Array.isArray(v)?v:[];
 const ids=(v:any)=>asArray(v).map(String).filter(Boolean);
+async function sourceEvidence(client:any,empresa_id:string,conversation_id:string,source_message_id:string){
+ const {data,error}=await client.from("atlas_conversation_messages").select("text_content,normalized_text").eq("empresa_id",empresa_id).eq("conversation_id",conversation_id).eq("id",source_message_id).maybeSingle();
+ if(error) throw new Error("SOURCE_MESSAGE_READ_FAILED");
+ const text=String(data?.normalized_text??data?.text_content??"").trim();
+ if(!text) throw new Error("SOURCE_EVIDENCE_REQUIRED");
+ return text;
+}
 
 export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
   const {client,empresa_id,conversation_id,source_message_id}=env;
@@ -77,7 +84,8 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       if(error) throw new Error("WORK_STATE_READ_FAILED");
       const stateId=w?.state_id, stateVersion=Number(w?.state_version??0);
       if(!stateId) throw new Error("ACTIVE_OPPORTUNITY_REQUIRED");
-      const decision={requested_action:"CREATE",action_evidence:"agent_tool",confidence:1,work_intent:"QUOTE_REQUEST"};
+      const evidence=await sourceEvidence(client,empresa_id,conversation_id,source_message_id);
+      const decision={requested_action:"CREATE",action_evidence:evidence,confidence:1,work_intent:"QUOTE_REQUEST"};
       const {data,error:execError}=await client.rpc("atlas_commercial_execute_turn",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,p_expected_state_id:stateId,p_expected_version:stateVersion,p_decision:decision});
       if(execError) throw new Error("CREATE_QUOTE_FAILED");
       return data;
@@ -96,7 +104,8 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       if(action==="MODIFY") return {code:"MODIFICATION_ARGUMENTS_REQUIRED",enabled:false};
       if(!w?.state_id) throw new Error("ACTIVE_OPPORTUNITY_REQUIRED");
       const requested_action=action==="ACCEPT"?"ACCEPT":"PAYMENT";
-      const decision={requested_action,action_evidence:"agent_tool",confidence:1,work_intent:requested_action};
+      const evidence=await sourceEvidence(client,empresa_id,conversation_id,source_message_id);
+      const decision={requested_action,action_evidence:evidence,confidence:1,work_intent:requested_action};
       const {data,error:execError}=await client.rpc("atlas_commercial_execute_turn",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,p_expected_state_id:w.state_id,p_expected_version:Number(w.state_version??0),p_decision:decision});
       if(execError) throw new Error("QUOTE_ACTION_FAILED");
       return data;
