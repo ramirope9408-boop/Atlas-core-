@@ -78,8 +78,12 @@ export function interpret(raw:unknown,context:Json):Json {
   if(action==='MODIFY'&&!hasFormalQuote)action='NONE';
   if(action==='ACCEPT'&&['ACCEPTED','PAYMENT_PENDING','PAID'].includes(String(context.work_state?.commercial_stage||'')))action='NONE';
   if(ack)action='NONE';
-  const start=d.start_new_event===true;
-  if(start&&!hasEvidence)throw new Error('NEW_EVENT_EVIDENCE_REQUIRED');
+  const previousEvent=context.work_state?.event||{};
+  const previousType=normalize(previousEvent.event_type);
+  const nextType=normalize(ep.event_type);
+  const explicitNewOccasion=Boolean(nextType&&previousType&&nextType!==previousType);
+  const start=d.start_new_event===true||explicitNewOccasion;
+  if(start&&d.start_new_event===true&&!hasEvidence)throw new Error('NEW_EVENT_EVIDENCE_REQUIRED');
   const visualIds=d.visual_product_ids||[];if(!Array.isArray(visualIds)||visualIds.some((id:string)=>!catalog.has(id)))throw new Error('NON_CANONICAL_VISUAL');
   const refIds=(d.current_reference?.product_ids||[]);if(!Array.isArray(refIds)||refIds.some((id:string)=>!catalog.has(id)))throw new Error('NON_CANONICAL_REFERENCE');
   const secondaryIds=d.secondary_product_ids||[];
