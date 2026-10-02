@@ -24,6 +24,61 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       return {topic:String(args?.topic??"").trim()||null,policy:data};
     }
 
+    case "list_opportunities": {
+      const {data,error}=await client.from("atlas_conversation_work_states")
+        .select("id,status,commercial_stage,event,requirements,selected_items,active_quote_builder_id,state_version,started_at,updated_at,closed_at")
+        .eq("empresa_id",empresa_id)
+        .eq("conversation_id",conversation_id)
+        .order("updated_at",{ascending:false})
+        .limit(20);
+      if(error) throw new Error("OPPORTUNITY_LIST_FAILED");
+      return {items:asArray(data)};
+    }
+
+    case "resume_opportunity": {
+      const workStateId=String(args?.work_state_id??"").trim();
+      if(!workStateId) throw new Error("WORK_STATE_ID_REQUIRED");
+
+      const {data:target,error:targetError}=await client.from("atlas_conversation_work_states")
+        .select("id,status")
+        .eq("id",workStateId)
+        .eq("empresa_id",empresa_id)
+        .eq("conversation_id",conversation_id)
+        .maybeSingle();
+
+      if(targetError||!target) throw new Error("OPPORTUNITY_NOT_FOUND");
+
+      const {data:active}=await client.from("atlas_conversation_work_states")
+        .select("id")
+        .eq("empresa_id",empresa_id)
+        .eq("conversation_id",conversation_id)
+        .eq("status","ACTIVE")
+        .neq("id",workStateId);
+
+      for(const row of asArray(active)){
+        const {error}=await client.from("atlas_conversation_work_states")
+          .update({status:"CLOSED",closed_at:new Date().toISOString(),updated_at:new Date().toISOString()})
+          .eq("id",row.id)
+          .eq("empresa_id",empresa_id)
+          .eq("conversation_id",conversation_id);
+        if(error) throw new Error("OPPORTUNITY_PAUSE_FAILED");
+      }
+
+      const {error:resumeError}=await client.from("atlas_conversation_work_states")
+        .update({status:"ACTIVE",closed_at:null,updated_at:new Date().toISOString()})
+        .eq("id",workStateId)
+        .eq("empresa_id",empresa_id)
+        .eq("conversation_id",conversation_id);
+
+      if(resumeError) throw new Error("OPPORTUNITY_RESUME_FAILED");
+
+      const {data:resumed,error:readError}=await client.rpc("atlas_get_active_conversation_work_state_v1",{
+        p_empresa_id:empresa_id,p_conversation_id:conversation_id
+      });
+      if(readError) throw new Error("WORK_STATE_READ_FAILED");
+      return resumed;
+    }
+
     case "open_opportunity": {
       const {data,error}=await client.rpc("atlas_apply_conversation_work_state_v4",{
         p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,
@@ -60,18 +115,25 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
     }
 
     case "select_products": {
-      const productIds=ids(args?.product_ids);
+      const explicitItems=asArray(args?.items);
+      const productIds=explicitItems.length
+        ? explicitItems.map((x:any)=>String(x?.product_id??"")).filter(Boolean)
+        : ids(args?.product_ids);
       if(!productIds.length) throw new Error("PRODUCT_IDS_REQUIRED");
+
       const {data:products,error}=await client.from("productos").select("id,nombre")
         .eq("empresa_id",empresa_id).in("id",productIds).eq("activo",true).eq("estado","published").is("deleted_at",null);
       if(error||asArray(products).length!==new Set(productIds).size) throw new Error("NON_CANONICAL_PRODUCT");
+
       const {data:currentState}=await client.rpc("atlas_get_active_conversation_work_state_v1",{
         p_empresa_id:empresa_id,p_conversation_id:conversation_id
       });
       const recommended=asArray(currentState?.recommended_items);
+
       const selected=asArray(products).map((p:any)=>{
+        const explicit=explicitItems.find((x:any)=>String(x?.product_id)===String(p.id));
         const prior=recommended.find((r:any)=>String(r?.product_id)===String(p.id));
-        const quantity=Math.max(1,Number(prior?.quantity??1));
+        const quantity=Math.max(1,Number(explicit?.quantity??prior?.quantity??1));
         return {product_id:p.id,quantity};
       });
       const {data,error:applyError}=await client.rpc("atlas_apply_conversation_work_state_v4",{
@@ -83,6 +145,40 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
     }
 
     case "show_products": {
+      const scope=String(args?.scope??"REFERENCE");
+      const page=Math.max(1,Number(args?.page??1));
+
+      if(scope==="CATALOG_PAGE"){
+        const pageSize=8;
+        const from=(page-1)*pageSize;
+        const to=from+pageSize-1;
+        const {data,error,count}=await client.from("productos")
+          .select("id,nombre,descripcion_resumen,sku,moneda,precio_base",{count:"exact"})
+          .eq("empresa_id",empresa_id)
+          .eq("activo",true)
+          .eq("estado","published")
+          .is("deleted_at",null)
+          .order("nombre",{ascending:true})
+          .range(from,to);
+        if(error) throw new Error("CATALOG_PAGE_FAILED");
+
+        const items=[];
+        for(const p of asArray(data)){
+          const {data:visual}=await client.rpc("atlas_resolve_product_visual_reference_v1",{
+            p_empresa_id:empresa_id,p_product_id:p.id
+          });
+          items.push({...p,visual:visual??null});
+        }
+        return {
+          code:"CATALOG_PAGE_READY",
+          page,
+          page_size:pageSize,
+          total:count??null,
+          has_more:typeof count==="number"?to+1<count:null,
+          items
+        };
+      }
+
       const productIds=ids(args?.product_ids);
       if(!productIds.length) return {code:"PRODUCT_REFERENCE_REQUIRED",items:[]};
       const items=[];
@@ -115,7 +211,45 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
         if(qError) throw new Error("QUOTE_READ_FAILED");
         return data;
       }
-      if(action==="MODIFY") return {code:"MODIFICATION_ARGUMENTS_REQUIRED",enabled:false};
+      if(action==="MODIFY"){
+        const interpretation=args?.interpretation;
+        if(!interpretation||typeof interpretation!=="object") return {code:"MODIFICATION_ARGUMENTS_REQUIRED",enabled:false};
+
+        const canonicalInterpretation={
+          primary_intent:"modify_quote",
+          intent_confidence:Number(interpretation.intent_confidence??0),
+          ambiguities:asArray(interpretation.ambiguities),
+          patch:interpretation.patch??{}
+        };
+
+        const {data:plan,error:planError}=await client.rpc("atlas_prepare_quote_modification_plan_v2",{
+          p_empresa_id:empresa_id,
+          p_conversation_id:conversation_id,
+          p_source_message_id:source_message_id,
+          p_interpretation:canonicalInterpretation
+        });
+        if(planError) throw new Error("QUOTE_MODIFICATION_PLAN_FAILED");
+        if(plan?.ready_to_act!==true) return plan;
+
+        const {data:result,error:execError}=await client.rpc("atlas_execute_quote_modification_plan_v2",{
+          p_empresa_id:empresa_id,
+          p_conversation_id:conversation_id,
+          p_source_message_id:source_message_id,
+          p_validated_plan:plan
+        });
+        if(execError) throw new Error("QUOTE_MODIFICATION_EXECUTION_FAILED");
+
+        const newQuoteId=result?.new_quote_builder_id??result?.quote_builder_id??null;
+        if(newQuoteId){
+          await client.rpc("atlas_attach_quote_to_work_state_v1",{
+            p_empresa_id:empresa_id,
+            p_conversation_id:conversation_id,
+            p_quote_builder_id:newQuoteId
+          });
+        }
+
+        return {plan,result};
+      }
       if(!w?.state_id) throw new Error("ACTIVE_OPPORTUNITY_REQUIRED");
       const requested_action=action==="ACCEPT"?"ACCEPT":"PAYMENT";
       const evidence=await sourceEvidence(client,empresa_id,conversation_id,source_message_id);
