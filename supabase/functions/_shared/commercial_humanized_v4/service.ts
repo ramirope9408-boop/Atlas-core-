@@ -66,7 +66,14 @@ export async function processTurn(b:Backend,input:Json):Promise<Json>{
     items.push({kind:result.delivery_type==='PDF'?'PDF':'IMAGE',document_id:doc.document_id,storage:doc.storage,file_name:doc.file_name,caption:text});
     if(result.decision?.secondary_product_ids?.length){const cat=result.context?.catalog_products||[];const picks=cat.filter((p:Json)=>result.decision.secondary_product_ids.includes(p.product_id)).slice(0,3);if(picks.length)items.push({kind:'TEXT',text:'Y sobre lo otro que me preguntaste, tengo estas opciones: '+picks.map((p:Json)=>p.name).join(', ')+'. Si quieres, te muestro fotos.'});}
   }else if(result.delivery_type==='VISUAL'){
-    const visuals=await b.rpc('atlas_resolve_conversation_visuals_v1',{p_empresa_id:input.empresa_id,p_conversation_id:input.conversation_id,p_product_ids:result.decision.visual_product_ids||[],p_scope:result.decision.visual_scope||'WORK_STATE_REFERENCE'});const pictures=visuals.items||visuals.visuals||[];if(!visuals.ready||!pictures.length)throw new Error('CANONICAL_VISUAL_NOT_AVAILABLE');for(const p of pictures){if(!p.product_id||!(p.public_url||p.url))throw new Error('VISUAL_PROOF_REQUIRED');items.push({kind:'IMAGE',url:p.public_url||p.url,caption:p.canonical_name||p.product_name||p.name||'',product_ids:[p.product_id]});}
+    const catalogMode=String(result.decision?.visual_scope||'').toUpperCase()==='CATALOG';
+    if(catalogMode){
+      const pictures=(result.context?.catalog_products||[]).filter((p:Json)=>p.visual?.available&&p.visual?.public_url);
+      if(!pictures.length)throw new Error('CANONICAL_CATALOG_VISUALS_NOT_AVAILABLE');
+      for(const p of pictures){items.push({kind:'IMAGE',url:p.visual.public_url,caption:p.name||'',product_ids:[p.product_id]});}
+    }else{
+      const visuals=await b.rpc('atlas_resolve_conversation_visuals_v1',{p_empresa_id:input.empresa_id,p_conversation_id:input.conversation_id,p_product_ids:result.decision.visual_product_ids||[],p_scope:result.decision.visual_scope||'WORK_STATE_REFERENCE'});const pictures=visuals.items||visuals.visuals||[];if(!visuals.ready||!pictures.length)throw new Error('CANONICAL_VISUAL_NOT_AVAILABLE');for(const p of pictures){if(!p.product_id||!(p.public_url||p.url))throw new Error('VISUAL_PROOF_REQUIRED');items.push({kind:'IMAGE',url:p.public_url||p.url,caption:p.canonical_name||p.product_name||p.name||'',product_ids:[p.product_id]});}
+    }
   }else if(result.delivery_type==='POLICIES'){const doc=await b.document('EVENT_POLICIES',result);items.push({kind:'IMAGE',storage:doc.storage,caption:text});
   }else if(result.decision?.response_mode==='AUDIO'||result.decision?.response_mode==='TEXT_PLUS_AUDIO'){const audio=await b.audio(text,result);items.push({kind:'AUDIO',storage:audio.storage,text});if(result.decision.response_mode==='TEXT_PLUS_AUDIO')items.push({kind:'TEXT',text});
   }else if(text)items.push({kind:'TEXT',text});
