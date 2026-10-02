@@ -22,6 +22,30 @@ const parseArgs=(v:any)=>{
  catch{return {};}
 };
 
+
+
+function compactToolOutput(name:string,result:any){
+ if(name!=="show_products") return result;
+ const items=Array.isArray(result?.items)?result.items:[];
+ return {
+  code:result?.code??"VISUALS_READY",
+  page:result?.page??null,
+  page_size:result?.page_size??null,
+  total:result?.total??null,
+  has_more:result?.has_more??null,
+  visual_delivery_requested:true,
+  items:items.map((x:any)=>({
+   product_id:x?.product_id??x?.id??x?.visual?.product_id??null,
+   name:x?.nombre??x?.name??x?.visual?.canonical_name??x?.visual?.product_name??null,
+   price:x?.precio_base??x?.price??null,
+   visual_ready:Boolean(
+    x?.visual?.public_url||x?.visual?.signed_url||x?.visual?.url||
+    x?.public_url||x?.signed_url||x?.url
+   )
+  }))
+ };
+}
+
 export async function runAgentLoop(opts:{client:any;empresa_id:string;conversation_id:string;source_message_id:string;request:any;model:string;apiKey:string;maxSteps?:number}){
  let input=opts.request.input;
  const trace:any[]=[];
@@ -84,7 +108,7 @@ export async function runAgentLoop(opts:{client:any;empresa_id:string;conversati
     args
    );
    stepTrace.tool_calls.push({name:call.name,call_id:call.call_id,arguments:args,result});
-   toolOutputs.push({type:"function_call_output",call_id:call.call_id,output:JSON.stringify(result)});
+   toolOutputs.push({type:"function_call_output",call_id:call.call_id,output:JSON.stringify(compactToolOutput(call.name,result))});
   }
 
   trace.push(stepTrace);
