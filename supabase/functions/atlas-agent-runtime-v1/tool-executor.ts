@@ -392,6 +392,22 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       return data;
     }
 
+    case "request_handoff": {
+      const reasonCode=String(args?.reason_code??"").trim();
+      if(!reasonCode) throw new Error("HANDOFF_REASON_REQUIRED");
+      const {data,error}=await client.rpc("atlas_request_conversation_handoff_v1",{
+        p_empresa_id:empresa_id,
+        p_conversation_id:conversation_id,
+        p_source_message_id:source_message_id,
+        p_reason_code:reasonCode,
+        p_reason_detail:args?.reason_detail==null?null:String(args.reason_detail),
+        p_priority:String(args?.priority??"NORMAL"),
+        p_metadata:{requested_by:"VALENTINA_AGENT"}
+      });
+      if(error) throw new Error("HANDOFF_REQUEST_FAILED");
+      return data;
+    }
+
     case "create_quote": {
       const {data:w,error}=await client.rpc("atlas_get_active_conversation_work_state_v1",{p_empresa_id:empresa_id,p_conversation_id:conversation_id});
       if(error) throw new Error("WORK_STATE_READ_FAILED");
