@@ -7,6 +7,12 @@ export const ATLAS_AGENT_TOOLS = [
   },
   {
     type: "function",
+    name: "get_company_policy",
+    description: "Read canonical company commercial policy when the customer asks about service scope, minimums, deposits, waiters, decoration, delivery or other business rules. Never invent policy from general knowledge.",
+    parameters: { type:"object", properties:{ topic:{type:"string"} }, additionalProperties:false }
+  },
+  {
+    type: "function",
     name: "open_opportunity",
     description: "Open a clean opportunity/event when the customer is clearly starting another commercial event. Never copy event-specific fields from another opportunity.",
     parameters: { type:"object", properties:{ reason:{type:"string"} }, required:["reason"], additionalProperties:false }
@@ -26,7 +32,7 @@ export const ATLAS_AGENT_TOOLS = [
   {
     type: "function",
     name: "select_products",
-    description: "Select canonical products for the active opportunity.",
+    description: "Select canonical products for the active opportunity. If the customer does not provide new quantities, ATLAS preserves the quantities already recommended for those products when available.",
     parameters: { type:"object", properties:{ product_ids:{type:"array",items:{type:"string"}} }, required:["product_ids"], additionalProperties:false }
   },
   {
