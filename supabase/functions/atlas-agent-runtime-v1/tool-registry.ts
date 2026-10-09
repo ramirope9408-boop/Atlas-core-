@@ -138,11 +138,11 @@ export const ATLAS_AGENT_TOOLS = [
   {
     type: "function",
     name: "quote_action",
-    description: "Read, modify, accept or request payment for the current canonical quote. For MODIFY provide a structured interpretation/patch grounded in the customer's message.",
+    description: "Read, resend, modify, accept or request payment for the current canonical quote. For MODIFY provide a structured interpretation/patch grounded in the customer's message.",
     parameters: {
       type:"object",
       properties:{
-        action:{type:"string",enum:["GET","MODIFY","ACCEPT","PAYMENT"]},
+        action:{type:"string",enum:["GET","RESEND","MODIFY","ACCEPT","PAYMENT"]},
         interpretation:{
           type:"object",
           properties:{
