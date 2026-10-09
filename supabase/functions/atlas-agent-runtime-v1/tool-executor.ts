@@ -511,9 +511,10 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       const {data:w,error}=await client.rpc("atlas_get_active_conversation_work_state_v1",{p_empresa_id:empresa_id,p_conversation_id:conversation_id});
       if(error) throw new Error("WORK_STATE_READ_FAILED");
       const quoteId=w?.active_quote_builder_id??null;
-      if(action==="GET"){
+      if(action==="GET"||action==="RESEND"){
         const {data,error:qError}=await client.rpc("atlas_commercial_quote",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_quote_id:quoteId});
         if(qError) throw new Error("QUOTE_READ_FAILED");
+        if(action==="RESEND") return {code:"QUOTE_RESEND_REQUESTED",quote:data};
         return data;
       }
       if(action==="MODIFY"){
