@@ -5,6 +5,18 @@ type ToolEnv={client:any;empresa_id:string;conversation_id:string;source_message
 const asArray=(v:any)=>Array.isArray(v)?v:[];
 const ids=(v:any)=>asArray(v).map(String).filter(Boolean);
 
+function normalizeServiceType(value:any){
+  const raw=String(value??"").trim();
+  if(!raw) return raw;
+  const upper=raw.toUpperCase();
+  if(["FINGER_BOX","FINGER_TABLE","FULL_EVENT"].includes(upper)) return upper;
+  const n=raw.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  if(/mesa\s*finger|finger\s*table/.test(n)) return "FINGER_TABLE";
+  if(/montaje|servicio\s+en\s+el\s+evento|evento\s+integral|meser|personal\s+de\s+servicio/.test(n)) return "FULL_EVENT";
+  if(/finger\s*box|caja|empacado|solo\s+entrega|entrega\s+y\s+empacado/.test(n)) return "FINGER_BOX";
+  return raw;
+}
+
 async function requireStableVoiceConfirmation(
  client:any,
  empresa_id:string,
@@ -232,7 +244,12 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       const p=args?.patch??{};
       const patch:any={work_intent:"CONTINUE_EVENT"};
       if(p.event_patch) patch.event_patch=p.event_patch;
-      if(p.requirements) patch.requirements=p.requirements;
+      if(p.requirements){
+        patch.requirements={...p.requirements};
+        if(Object.prototype.hasOwnProperty.call(patch.requirements,"service_type")){
+          patch.requirements.service_type=normalizeServiceType(patch.requirements.service_type);
+        }
+      }
       const {data,error}=await client.rpc("atlas_apply_conversation_work_state_v4",{
         p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,p_patch:patch
       });
@@ -497,8 +514,19 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
     case "create_quote": {
       const {data:w,error}=await client.rpc("atlas_get_active_conversation_work_state_v1",{p_empresa_id:empresa_id,p_conversation_id:conversation_id});
       if(error) throw new Error("WORK_STATE_READ_FAILED");
-      const stateId=w?.state_id, stateVersion=Number(w?.state_version??0);
+      let stateId=w?.state_id, stateVersion=Number(w?.state_version??0);
       if(!stateId) throw new Error("ACTIVE_OPPORTUNITY_REQUIRED");
+      const rawService=w?.requirements?.service_type;
+      const canonicalService=normalizeServiceType(rawService);
+      if(rawService&&canonicalService!==rawService){
+        const {data:healed,error:healError}=await client.rpc("atlas_apply_conversation_work_state_v4",{
+          p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,
+          p_patch:{work_intent:"CONTINUE_EVENT",requirements:{service_type:canonicalService}}
+        });
+        if(healError) throw new Error("SERVICE_TYPE_CANONICALIZATION_FAILED");
+        stateId=healed?.work_state?.state_id??healed?.state_id??stateId;
+        stateVersion=Number(healed?.work_state?.state_version??healed?.state_version??stateVersion);
+      }
       const evidence=await sourceEvidence(client,empresa_id,conversation_id,source_message_id);
       const decision={requested_action:"CREATE",action_evidence:evidence,confidence:.99,work_intent:"QUOTE_REQUEST"};
       const {data,error:execError}=await client.rpc("atlas_commercial_execute_turn",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,p_expected_state_id:stateId,p_expected_version:stateVersion,p_decision:decision});
