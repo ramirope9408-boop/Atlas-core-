@@ -286,7 +286,7 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
         p_empresa_id:empresa_id,
         p_query_text:q,
         p_query_embedding:embedding,
-        p_match_count:12,
+        p_match_count:32,
         p_subcategoria:null,
         p_precio_min:null,
         p_precio_max:null
@@ -294,25 +294,68 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       if(error) throw new Error("CATALOG_HYBRID_SEARCH_FAILED");
 
       const excluded=new Set(ids(args?.exclude_product_ids));
+      const candidates=asArray(data).filter((x:any)=>!excluded.has(String(x.producto_id)));
+      const candidateIds=candidates.map((x:any)=>String(x.producto_id));
+
+      const categoryByProduct=new Map<string,string>();
+      const categoryNameById=new Map<string,string>();
+      if(candidateIds.length){
+        const {data:productRows,error:productError}=await client.from("productos")
+          .select("id,categoria_id")
+          .eq("empresa_id",empresa_id)
+          .in("id",candidateIds);
+        if(productError) throw new Error("CATALOG_CATEGORY_LOOKUP_FAILED");
+
+        const categoryIds=[...new Set(asArray(productRows).map((x:any)=>String(x.categoria_id??"")).filter(Boolean))];
+        for(const p of asArray(productRows)){
+          if(p?.categoria_id) categoryByProduct.set(String(p.id),String(p.categoria_id));
+        }
+
+        if(categoryIds.length){
+          const {data:categoryRows,error:categoryError}=await client.from("categorias_productos")
+            .select("id,nombre")
+            .eq("empresa_id",empresa_id)
+            .in("id",categoryIds);
+          if(categoryError) throw new Error("CATALOG_CATEGORY_LOOKUP_FAILED");
+          for(const c of asArray(categoryRows)) categoryNameById.set(String(c.id),String(c.nombre??""));
+        }
+      }
+
+      const firstByCategory:any[]=[];
+      const remaining:any[]=[];
+      const seenCategories=new Set<string>();
+      for(const item of candidates){
+        const categoryId=categoryByProduct.get(String(item.producto_id))??"UNCATEGORIZED";
+        if(!seenCategories.has(categoryId)){
+          seenCategories.add(categoryId);
+          firstByCategory.push(item);
+        }else remaining.push(item);
+      }
+      const diversified=[...firstByCategory,...remaining].slice(0,12);
+
       return {
         code:"CATALOG_HYBRID_RESULTS",
-        retrieval:"ATLAS_HYBRID_V1",
+        retrieval:"ATLAS_HYBRID_V2_DIVERSIFIED",
         query:q,
-        items:asArray(data)
-          .filter((x:any)=>!excluded.has(String(x.producto_id)))
-          .slice(0,8)
-          .map((x:any)=>({
+        candidate_pool:candidates.length,
+        distinct_categories:seenCategories.size,
+        items:diversified.map((x:any)=>{
+          const categoryId=categoryByProduct.get(String(x.producto_id))??null;
+          return {
             id:x.producto_id,
             codigo_externo:x.codigo_externo,
             nombre:x.nombre,
             descripcion_resumen:x.descripcion_resumen,
             precio_base:x.precio_base,
             moneda:x.moneda,
+            categoria_id:categoryId,
+            categoria:categoryId?categoryNameById.get(categoryId)??null:null,
             match_type:x.match_type,
             vector_score:x.vector_score,
             hybrid_score:x.hybrid_score,
             recommendation_reason:x.recommendation_reason
-          }))
+          };
+        })
       };
     }
 
