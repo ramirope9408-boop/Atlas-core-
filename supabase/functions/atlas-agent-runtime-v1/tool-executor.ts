@@ -14,7 +14,23 @@ function normalizeServiceType(value:any){
   if(/mesa\s*finger|finger\s*table/.test(n)) return "FINGER_TABLE";
   if(/estaci[oó]n|montaje|servicio\s+en\s+el\s+evento|evento\s+integral|meser|personal\s+de\s+servicio/.test(n)) return "FULL_EVENT";
   if(/finger\s*box|caja|empacado|solo\s+entrega|entrega\s+y\s+empacado/.test(n)) return "FINGER_BOX";
-  return raw;
+  return null;
+}
+
+async function deriveServiceTypeFromProducts(client:any,empresa_id:string,productIds:string[]){
+  if(!productIds.length) return null;
+  const {data,error}=await client.from("productos")
+    .select("id,categoria_id,categorias_productos(nombre)")
+    .eq("empresa_id",empresa_id)
+    .in("id",productIds)
+    .eq("activo",true)
+    .eq("estado","published")
+    .is("deleted_at",null);
+  if(error) throw new Error("PRODUCT_SERVICE_DERIVATION_FAILED");
+  const categories=asArray(data).map((p:any)=>String(p?.categorias_productos?.nombre??"")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase());
+  if(categories.some((x:string)=>x==="estaciones")) return "FULL_EVENT";
+  return null;
 }
 
 async function requireStableVoiceConfirmation(
@@ -247,7 +263,9 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       if(p.requirements){
         patch.requirements={...p.requirements};
         if(Object.prototype.hasOwnProperty.call(patch.requirements,"service_type")){
-          patch.requirements.service_type=normalizeServiceType(patch.requirements.service_type);
+          const canonical=normalizeServiceType(patch.requirements.service_type);
+          if(canonical) patch.requirements.service_type=canonical;
+          else delete patch.requirements.service_type;
         }
       }
       const {data,error}=await client.rpc("atlas_apply_conversation_work_state_v4",{
@@ -381,9 +399,12 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
         const quantity=Math.max(1,Number(explicit?.quantity??prior?.quantity??1));
         return {product_id:p.id,quantity};
       });
+      const derivedServiceType=await deriveServiceTypeFromProducts(client,empresa_id,productIds);
+      const selectPatch:any={work_intent:"SELECT",selected_products:selected};
+      if(derivedServiceType) selectPatch.requirements={service_type:derivedServiceType};
       const {data,error:applyError}=await client.rpc("atlas_apply_conversation_work_state_v4",{
         p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,
-        p_patch:{work_intent:"SELECT",selected_products:selected}
+        p_patch:selectPatch
       });
       if(applyError) throw new Error("SELECT_PRODUCTS_FAILED");
       return data;
@@ -560,8 +581,12 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
       let stateId=w?.state_id, stateVersion=Number(w?.state_version??0);
       if(!stateId) throw new Error("ACTIVE_OPPORTUNITY_REQUIRED");
       const rawService=w?.requirements?.service_type;
-      const canonicalService=normalizeServiceType(rawService);
-      if(rawService&&canonicalService!==rawService){
+      let canonicalService=normalizeServiceType(rawService);
+      if(!canonicalService){
+        const selectedIds=asArray(w?.selected_items).map((x:any)=>String(x?.product_id??"")).filter(Boolean);
+        canonicalService=await deriveServiceTypeFromProducts(client,empresa_id,selectedIds);
+      }
+      if(canonicalService&&canonicalService!==rawService){
         const {data:healed,error:healError}=await client.rpc("atlas_apply_conversation_work_state_v4",{
           p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,
           p_patch:{work_intent:"CONTINUE_EVENT",requirements:{service_type:canonicalService}}
@@ -570,6 +595,7 @@ export async function executeAtlasTool(env:ToolEnv,name:string,args:any){
         stateId=healed?.work_state?.state_id??healed?.state_id??stateId;
         stateVersion=Number(healed?.work_state?.state_version??healed?.state_version??stateVersion);
       }
+      if(!canonicalService) throw new Error("CANONICAL_SERVICE_TYPE_REQUIRED");
       const evidence=await sourceEvidence(client,empresa_id,conversation_id,source_message_id);
       const decision={requested_action:"CREATE",action_evidence:evidence,confidence:.99,work_intent:"QUOTE_REQUEST"};
       const {data,error:execError}=await client.rpc("atlas_commercial_execute_turn",{p_empresa_id:empresa_id,p_conversation_id:conversation_id,p_source_message_id:source_message_id,p_expected_state_id:stateId,p_expected_version:stateVersion,p_decision:decision});
