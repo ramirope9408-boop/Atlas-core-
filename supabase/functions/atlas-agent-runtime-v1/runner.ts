@@ -1,7 +1,7 @@
-import { ATLAS_AGENT_SYSTEM } from "./system-prompt.ts";
-import { ATLAS_AGENT_TOOLS } from "./tool-registry.ts";
-import { executeAtlasTool } from "./tool-executor.ts";
-import { loadAgentContext } from "./context-manager.ts";
+import { ATLAS_AGENT_SYSTEM } from "https://raw.githubusercontent.com/ramirope9408-boop/Atlas-core-/15da8bd03962d90633e21c33c455f6978778d3eb/supabase/functions/atlas-agent-runtime-v1/system-prompt.ts";
+import { ATLAS_AGENT_TOOLS } from "https://raw.githubusercontent.com/ramirope9408-boop/Atlas-core-/15da8bd03962d90633e21c33c455f6978778d3eb/supabase/functions/atlas-agent-runtime-v1/tool-registry.ts";
+import { executeAtlasTool } from "https://raw.githubusercontent.com/ramirope9408-boop/Atlas-core-/15da8bd03962d90633e21c33c455f6978778d3eb/supabase/functions/atlas-agent-runtime-v1/tool-executor.ts";
+import { loadAgentContext } from "https://raw.githubusercontent.com/ramirope9408-boop/Atlas-core-/15da8bd03962d90633e21c33c455f6978778d3eb/supabase/functions/atlas-agent-runtime-v1/context-manager.ts";
 
 export type AgentModelRequest={company_profile:Record<string,unknown>;context:Record<string,unknown>;customer_message:string};
 
