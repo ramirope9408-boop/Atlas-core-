@@ -12,7 +12,7 @@ function normalizeServiceType(value:any){
   if(["FINGER_BOX","FINGER_TABLE","FULL_EVENT"].includes(upper)) return upper;
   const n=raw.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
   if(/mesa\s*finger|finger\s*table/.test(n)) return "FINGER_TABLE";
-  if(/montaje|servicio\s+en\s+el\s+evento|evento\s+integral|meser|personal\s+de\s+servicio/.test(n)) return "FULL_EVENT";
+  if(/estaci[oó]n|montaje|servicio\s+en\s+el\s+evento|evento\s+integral|meser|personal\s+de\s+servicio/.test(n)) return "FULL_EVENT";
   if(/finger\s*box|caja|empacado|solo\s+entrega|entrega\s+y\s+empacado/.test(n)) return "FINGER_BOX";
   return raw;
 }
